@@ -56,6 +56,50 @@ static void reportMatch (int ai, int bi, int start, int end)
     checkMatchMaximal (checkHapsA[ai], checkHapsB[bi], start, end, Ncheck) ;
 }
 
+/*
+ * Function to compute allele sharing across individuals in a particular pbwt
+ *
+ * */
+void alleleSharing(PBWT *p)
+{
+	int i, j; 
+	PbwtCursor *u = pbwtCursorCreate(p, TRUE, TRUE);
+
+	for (i = 0; i < p->N; i++){ 
+		pbwtCursorForwardsReadAD(u, i) ;	
+		if (p -> sites){
+			Site *s = arrp(p->sites, i, Site) ;
+			fprintf(stdout, "%s\t%d\t%s\t", p->chrom, s->x, dictName(variationDict, s->varD)) ;
+		}
+		for (j = 0; j < p->M; j++){
+			if (u->y[j]){
+				int id = u->a[j]/2 ;
+				fprintf(stdout, "%d\t", id) ;
+			}
+		}
+		fprintf(stdout, "\n") ;
+	}
+		
+	pbwtCursorDestroy(u);
+}
+
+
+
+/*
+ * void siteHaplotypes(){
+ *
+ *	1. Filtering to individuals that only have the variant at site k
+ *	
+ *	2. Reading the haplotypes forwards
+ *
+ *	3. Reading the haplotypes backwards
+ *
+ *	4. Cleaning up mem stuff
+ *
+ * }
+ */
+
+
 static void matchLongWithin1 (PBWT *p, int T,
 			      void (*report)(int ai, int bi, int start, int end))
 /* algorithm 3 in paper */

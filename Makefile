@@ -1,7 +1,7 @@
 
 CFLAGS= -g -O3
 CPPFLAGS=-I$(HTSDIR)
-HTSDIR=../htslib
+HTSDIR=/usr/local/lib
 HTSLIB=$(HTSDIR)/libhts.a
 LDLIBS=-lpthread -lz -lm $(HTSLIB)
 
