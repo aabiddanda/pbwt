@@ -269,7 +269,7 @@ int main (int argc, char *argv[])
       fprintf (stderr, "  -buildReverse             build reverse pbwt\n") ;
       fprintf (stderr, "  -readGeneticMap <file>    read Oxford format genetic map file\n") ;
       fprintf (stderr, "  -4hapsStats               mu:rho 4 hap test stats\n") ;
-    	fprintf (stderr, "  -arjun               			Testing painting around rare variants\n") ;
+    	fprintf (stderr, "  -alleleShare <file>       compute allele-sharing for variants in sites file\n") ;
 		}
 
   timeUpdate(logFile) ;
@@ -458,9 +458,8 @@ int main (int argc, char *argv[])
       }
     else if (!strcmp (argv[0], "-play"))
       { p = playGround (p) ; argc -= 1 ; argv += 1 ; }
-		else if (!strcmp (argv[0], "-arjun") && argc > 1)
+		else if (!strcmp (argv[0], "-alleleShare") && argc > 1)
 			{
-				// Filtering based on Allele frequencies
 				FOPEN("selectSites","r"); 
 				char *chr = 0 ; 
 				Array sites = pbwtReadSitesFile (fp, &chr) ;
@@ -470,7 +469,6 @@ int main (int argc, char *argv[])
 				}
 				p = pbwtSelectSites (p, sites, FALSE) ; free (chr) ; arrayDestroy (sites) ;
 				
-				// Actually calling our allele sharing function 
 				alleleSharing(p); argc -= 2; argv += 2;
 			}
 		else
