@@ -57,8 +57,7 @@ static void reportMatch (int ai, int bi, int start, int end)
 }
 
 /*
- * Function to compute allele sharing across individuals in a particular pbwt
- *
+ * Function to compute allele sharing across individuals in a pbwt
  * */
 void alleleSharing(PBWT *p)
 {
@@ -67,19 +66,26 @@ void alleleSharing(PBWT *p)
 
 	for (i = 0; i < p->N; i++){ 
 		pbwtCursorForwardsReadAD(u, i) ;	
-		if (p -> sites){
+		if (p->sites){
 			Site *s = arrp(p->sites, i, Site) ;
 			fprintf(stdout, "%s\t%d\t%s\t", p->chrom, s->x, dictName(variationDict, s->varD)) ;
 		}
+		int prev_id = 0 ; 
 		for (j = 0; j < p->M; j++){
 			if (u->y[j]){
 				int id = u->a[j]/2 ;
-				fprintf(stdout, "%d\t", id) ;
+				if (id != prev_id){
+					if (p->samples){
+						Sample *curSamp = arrp(p->samples, id, Sample) ;
+						fprintf(stdout, "%s\t", sampleName(curSamp)) ;
+						prev_id = id ;
+					}
+				}
 			}
 		}
 		fprintf(stdout, "\n") ;
-	}
-		
+	}	
+	// Cleaning up
 	pbwtCursorDestroy(u);
 }
 
