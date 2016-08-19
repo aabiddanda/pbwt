@@ -214,6 +214,8 @@ void matchSequencesSweepSparse (PBWT *p, PBWT *q, int nSparse,
 				void (*report)(int, int, int, int, BOOL)) ;
 
 void alleleSharing(PBWT *p);
+void printDot(PBWT *p, int start, int d);
+
 
 /* pbwtImpute.c */
 

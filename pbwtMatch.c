@@ -63,17 +63,20 @@ void alleleSharing(PBWT *p)
 {
 	int i, j; 
 	PbwtCursor *u = pbwtCursorCreate(p, TRUE, TRUE);
-
+	
 	for (i = 0; i < p->N; i++){ 
 		pbwtCursorForwardsReadAD(u, i) ;	
 		if (p->sites){
 			Site *s = arrp(p->sites, i, Site) ;
 			fprintf(stdout, "%s\t%d\t%s\t", p->chrom, s->x, dictName(variationDict, s->varD)) ;
 		}
-		int prev_id = 0 ; 
+
+		int prev_id, cnt = 0 ; 
+		int ac = p->M - u->c ; //allele count 
 		for (j = 0; j < p->M; j++){
 			if (u->y[j]){
-				int id = u->a[j]/2 ;
+				cnt += 1 ;
+				int id = u->a[j]/2 ; // Index of individual, not haplotype 
 				if (id != prev_id){
 					if (p->samples){
 						Sample *curSamp = arrp(p->samples, id, Sample) ;
@@ -82,6 +85,7 @@ void alleleSharing(PBWT *p)
 					}
 				}
 			}
+			if (cnt == ac) break;
 		}
 		fprintf(stdout, "\n") ;
 	}	
@@ -90,21 +94,86 @@ void alleleSharing(PBWT *p)
 }
 
 
-
 /*
- * void siteHaplotypes(){
- *
- *	1. Filtering to individuals that only have the variant at site k
- *	
- *	2. Reading the haplotypes forwards
- *
- *	3. Reading the haplotypes backwards
- *
- *	4. Cleaning up mem stuff
- *
- * }
+ *	A function to print the transitions of the pBWT in the DOT language (for later visualization) 
+ *	and starting at site i and going for d more sites
  */
+void printDot(PBWT *p, int k, int d){
+	
+	//1. Keep track of individuals with minor allele at site k
+	int i, j ;
+	PbwtCursor *u = pbwtCursorCreate(p, TRUE, TRUE);
+	for (i = 0 ; i < k; i++) pbwtCursorForwardsReadAD(u,i) ; //Moving cursor to the kth variant
+	
+	int ac = p->M - u->c; //Allele count for start variant	
 
+
+	Array hapIDs = arrayCreate(p->M, int) ; //original haplotype indexes 
+	Array indexs = arrayCreate(p->M, int) ; //order at current state 
+	int cnt = 0;
+	// Reading through the haplotypes to get initial haplotype indices
+	for (int k=0; k < p->M; k++){
+		if (u->y[k]){
+			array(hapIDs, arrayMax(hapIDs), int) = u->a[k];
+			array(indexs, arrayMax(indexs), int) = k;
+			cnt++;
+			if (cnt == ac) break;
+		}
+	}
+	
+	//2. Printing graphs in the DOT language
+	fprintf(stdout, "digraph forward {\n");	
+	//2a. Reading forward in the order and tracking haplotype indices
+	for (j = i; j < i+d; j++){
+		pbwtCursorForwardsReadAD(u,j); //Moving forward a single step (variant) 
+		cnt = 0; //set counter to 0 for new position
+		for (int k =0; k < p->M; k++){
+			int cur_ind = u->a[k]	;
+			int tmp , found =0 ;
+			for (tmp = 0 ; tmp < hapIDs->max; tmp++){
+				int *index = arrp(hapIDs, tmp, int);
+				if (*index == cur_ind){
+				 	found = 1;
+					break;
+				}
+			}
+			if (found) {
+				// Printing out a line of DOT file - making sure that all nodes are more unique
+				fprintf(stdout, "\ta%db%dt%d[label=\"%d\"];", *arrp(indexs, tmp, int), cur_ind, j, *arrp(indexs, tmp, int));
+				fprintf(stdout, " a%db%dt%d[label=\"%d\"];", k, cur_ind, j+1, k);
+				fprintf(stdout, " a%db%dt%d -> a%db%dt%d [label=\"%d\"];\n", *arrp(indexs, tmp, int), cur_ind, j, k, cur_ind, j+1, cur_ind);
+				array(indexs, tmp, int) = k; // Set the current index of the indiv
+				cnt++;
+			}
+			if (cnt == ac) break; //Found all individuals we wanted
+		}	
+	}
+	fprintf(stdout, "}\n");
+
+}
+
+
+
+/**
+Finding haplotype lengths of individuals that carry variant at site k  
+void siteHaplotypes(PBWT *p, int k){
+ 	//1. Filtering to individuals that only have the variant at site k
+	int i,j;
+	PbwtCursor *f = pbwtCursorCreate(p,TRUE, TRUE);	//Forward cursor
+	PbwtCursor *r = pbwtCursorCreate(p, FALSE, TRUE); //Reverse cursor 
+	for (i = 0; i < k; i++) pbwtCursorForwardsReadAD(f, i);
+
+	int ac = p->M - f->c; //Allele count
+
+ 	//2. Reading the haplotypes forwards
+ 
+ 	//3. Reading the haplotypes backwards
+ 
+ 	//4. Cleaning up mem stuff
+ 
+}
+
+*/
 
 static void matchLongWithin1 (PBWT *p, int T,
 			      void (*report)(int ai, int bi, int start, int end))
