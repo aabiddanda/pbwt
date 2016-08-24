@@ -96,7 +96,7 @@ void alleleSharing(PBWT *p)
 
 /*
  *	A function to print the transitions of the pBWT in the DOT language (for later visualization) 
- *	and starting at site i and going for d more sites
+ *	and starting at site i and proceeding through d steps
  */
 void printDot(PBWT *p, int k, int d){
 	
@@ -106,7 +106,6 @@ void printDot(PBWT *p, int k, int d){
 	for (i = 0 ; i < k; i++) pbwtCursorForwardsReadAD(u,i) ; //Moving cursor to the kth variant
 	
 	int ac = p->M - u->c; //Allele count for start variant	
-
 
 	Array hapIDs = arrayCreate(p->M, int) ; //original haplotype indexes 
 	Array indexs = arrayCreate(p->M, int) ; //order at current state 
@@ -124,7 +123,8 @@ void printDot(PBWT *p, int k, int d){
 	//2. Printing graphs in the DOT language
 	fprintf(stdout, "digraph forward {\n");	
 	//2a. Reading forward in the order and tracking haplotype indices
-	for (j = i; j < i+d; j++){
+	for (j = i+1; j < i+d; j++){
+		fprintf(stderr, "J : %d\n", j);
 		pbwtCursorForwardsReadAD(u,j); //Moving forward a single step (variant) 
 		cnt = 0; //set counter to 0 for new position
 		for (int k =0; k < p->M; k++){
@@ -138,42 +138,139 @@ void printDot(PBWT *p, int k, int d){
 				}
 			}
 			if (found) {
-				// Printing out a line of DOT file - making sure that all nodes are more unique
+				// Printing out a line of DOT file - making sure that all nodes are unique
 				fprintf(stdout, "\ta%db%dt%d[label=\"%d\"];", *arrp(indexs, tmp, int), cur_ind, j, *arrp(indexs, tmp, int));
 				fprintf(stdout, " a%db%dt%d[label=\"%d\"];", k, cur_ind, j+1, k);
-				fprintf(stdout, " a%db%dt%d -> a%db%dt%d [label=\"%d\"];\n", *arrp(indexs, tmp, int), cur_ind, j, k, cur_ind, j+1, cur_ind);
+				fprintf(stdout, " a%db%dt%d -> a%db%dt%d [label=\"%d,%d\"];\n", *arrp(indexs, tmp, int), cur_ind, j, k, cur_ind, j+1, cur_ind,j);
 				array(indexs, tmp, int) = k; // Set the current index of the indiv
 				cnt++;
 			}
 			if (cnt == ac) break; //Found all individuals we wanted
-		}	
+		}
 	}
 	fprintf(stdout, "}\n");
-
+	// Cleaning up
+	pbwtCursorDestroy(u);
 }
 
+
+/*
+ * Helper function for finding haplotype breakpoints
+ *
+ * */
+void findHapEndpoints(PBWT *p, int k, Array hapIDs, Array indexs,
+		Array fend, Array rend){
+	
+	if (k > p->N || k < 0) 
+	{
+		die ("Index k = %d is out of range\nType pbwt without arguments for help", k);
+	}
+		
+	//1. Filtering to individuals that only have the variant at site k
+	int i,j;
+	PbwtCursor *f = pbwtCursorCreate(p,TRUE, TRUE);	//Forward cursor
+	for (i = 0; i < k; i++)  pbwtCursorForwardsReadAD(f, i);
+
+	int ac = p->M - f->c; //Allele count
+	int cnt = 0;
+
+	// Initializing all Arrays
+	for (int k=0; k < p->M; k++){
+		if (f->y[k]){
+			array(hapIDs, arrayMax(hapIDs), int) = f->a[k];
+			array(indexs, arrayMax(indexs), int) = k;
+			array(fend, arrayMax(fend), int) = 0;
+			array(rend, arrayMax(rend), int) = p->N;
+			cnt++;
+			if (cnt == ac) break;
+		}
+	}
+
+ 	//2. Reading the haplotypes forwards (and setting endpoints)
+	j=i; 
+	BOOL broken = FALSE; //all of the haplotypes have ended
+	int break_cnt = 0;
+	while(j < p->N && !broken){
+		pbwtCursorForwardsReadAD(f,j);
+		cnt = 0; 
+		for (int k = 0; k < p->M; k++){
+			int cur_ind = f->a[k];
+			int tmp;
+			BOOL found = FALSE;
+			for (tmp = 0; tmp < hapIDs->max; tmp++){
+				int *index = arrp(hapIDs, tmp, int);
+				if (*index == cur_ind){ found = TRUE; break; }
+			}
+			if (found){	
+				array(indexs, tmp, int) = k; // setting the current index
+				cnt++;
+			}
+			if (ac == cnt) break;	//found all haps that carry kth variant
+		}
+
+		//2a. Checking for breakpoints
+		for (int a=0; a < indexs->max; a++){
+			if (*arrp(fend, a, int) == 0){
+				int *i_a = arrp(indexs, a, int); // Current index of indiv a
+				BOOL ind_break = TRUE; 
+				for (int b=0; b < indexs->max; b++){
+					if (a != b){
+						int *i_b = arrp(indexs, b, int); // Current index of indiv b
+						int diff = *i_a - *i_b;
+						if (diff == -1 || diff == 1) {
+							ind_break = FALSE;	
+							// Setting the rev endpts by div array
+							if (*i_a > *i_b){	array(rend, a, int) = f->d[*i_a]; } 
+							else {array(rend, a, int) = f->d[*i_b]; }
+							break;
+						}
+					}
+				}
+				if (ind_break){ array(fend, a, int) = j; break_cnt++; }
+			}
+		}
+
+		//2b. Checking that all are broken
+		if (break_cnt == ac) broken = TRUE ;
+		if (!broken) j++;
+	}
+
+
+	// Cleaning up
+	pbwtCursorDestroy(f);
+
+}	
 
 
 /**
-Finding haplotype lengths of individuals that carry variant at site k  
+ * Finding haplotype lengths of individuals that carry variant at site k 
+ * 	where the haplotype intersects site k 
+ */
 void siteHaplotypes(PBWT *p, int k){
- 	//1. Filtering to individuals that only have the variant at site k
-	int i,j;
-	PbwtCursor *f = pbwtCursorCreate(p,TRUE, TRUE);	//Forward cursor
-	PbwtCursor *r = pbwtCursorCreate(p, FALSE, TRUE); //Reverse cursor 
-	for (i = 0; i < k; i++) pbwtCursorForwardsReadAD(f, i);
+ 	Array hapIDs = arrayCreate(p->M, int); //original haplotype indexes 
+	Array indexs = arrayCreate(p->M, int); //order at current state 
+	Array fend = arrayCreate(p->M, int); //indices of endpoints for haplotypes 
+	Array rend = arrayCreate(p->M, int);	
+	
+	//1. Get endpoints
+	findHapEndpoints(p, k, hapIDs, indexs, fend, rend);
+	Site *sk;
+	if (p->sites){ sk = arrp(p->sites, k, Site);	}
 
-	int ac = p->M - f->c; //Allele count
-
- 	//2. Reading the haplotypes forwards
- 
- 	//3. Reading the haplotypes backwards
- 
- 	//4. Cleaning up mem stuff
- 
+	//2. Fancy printing and output	
+	for (int i = 0; i < hapIDs->max; i++){
+		int *curID = arrp(hapIDs, i, int);
+		int *curFEnd = arrp(fend, i, int);
+		int *curREnd = arrp(rend, i , int);
+		if (p->sites && p->samples){
+			Site *s1 = arrp(p->sites, *curREnd, Site) ;
+			Site *s2 = arrp(p->sites, *curFEnd, Site) ;
+			Sample *curSamp = arrp(p->samples, *curID/2, Sample); // Div by 2 to get sample ID	
+			fprintf(stdout, "MATCH \t%d\t%s\t%d\t%d\n", sk->x, sampleName(curSamp), s1->x, s2->x) ;
+		}
+	}
 }
 
-*/
 
 static void matchLongWithin1 (PBWT *p, int T,
 			      void (*report)(int ai, int bi, int start, int end))

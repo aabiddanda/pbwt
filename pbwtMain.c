@@ -270,7 +270,10 @@ int main (int argc, char *argv[])
       fprintf (stderr, "  -readGeneticMap <file>    read Oxford format genetic map file\n") ;
       fprintf (stderr, "  -4hapsStats               mu:rho 4 hap test stats\n") ;
     	fprintf (stderr, "  -alleleShare <file>       compute allele-sharing for variants in sites file\n") ;
-	    fprintf (stderr, "  -test <start> <duration>	print haplotypes to the right as  \n") ;
+	    fprintf (stderr, "  -printDot <start> <duration>	print haplotype sharing to the right\n") ;
+			fprintf (stderr, "  -printDotReverse <start> <duration>	print haplotype sharing to the left\n") ;
+			fprintf (stderr, "  -siteHaplotypes <k> 	print haplotype lengths that overlap site k\n") ;
+
 		}
 
   timeUpdate(logFile) ;
@@ -459,11 +462,16 @@ int main (int argc, char *argv[])
       }
     else if (!strcmp (argv[0], "-play"))
       { p = playGround (p) ; argc -= 1 ; argv += 1 ; }
-		else if (!strcmp (argv[0], "-test") && argc > 2)
+		else if (!strcmp (argv[0], "-printDot") && argc > 2)
 			{			
-				// TODO : running the print DOT function (a test version)
-				printDot(p, atoi(argv[1]), atoi(argv[2])); argc -= 3 ; argv += 3;
-			}	
+				printDot(p, atoi(argv[1]), atoi(argv[2]));
+				argc -= 3 ; argv += 3;
+			}
+		else if (!strcmp (argv[0], "-siteHaplotypes") && argc > 1)
+			{
+				siteHaplotypes(p, atoi(argv[1])); 
+				argc -= 2; argv += 2;
+			}
 		else if (!strcmp (argv[0], "-alleleShare") && argc > 1)
 			{
 				FOPEN("selectSites","r"); 
