@@ -68,7 +68,8 @@ void alleleSharing(PBWT *p)
 		pbwtCursorForwardsReadAD(u, i) ;	
 		if (p->sites){
 			Site *s = arrp(p->sites, i, Site) ;
-			fprintf(stdout, "%s\t%d\t%s\t", p->chrom, s->x, dictName(variationDict, s->varD)) ;
+			fprintf(stdout, "%s\t%d\t%s\t", p->chrom, s->x, 
+				dictName(variationDict, s->varD)) ;
 		}
 
 		int prev_id, cnt = 0 ; 
@@ -98,13 +99,15 @@ void alleleSharing(PBWT *p)
  *	A function to print the transitions of the pBWT in the DOT language (for later visualization) 
  *	and starting at site i and proceeding through d steps
  */
-void printDot(PBWT *p, int k, int d){
+void printDot(PBWT *p, int start, int d){
 	
 	//1. Keep track of individuals with minor allele at site k
 	int i, j ;
 	PbwtCursor *u = pbwtCursorCreate(p, TRUE, TRUE);
-	for (i = 0 ; i < k; i++) pbwtCursorForwardsReadAD(u,i) ; //Moving cursor to the kth variant
+	for (i = 0 ; i < start; i++) pbwtCursorForwardsReadAD(u,i) ; //Moving cursor to the kth variant
 	
+	fprintf(stdout, "digraph forward {\n");	
+
 	int ac = p->M - u->c; //Allele count for start variant	
 
 	Array hapIDs = arrayCreate(p->M, int) ; //original haplotype indexes 
@@ -115,38 +118,43 @@ void printDot(PBWT *p, int k, int d){
 		if (u->y[k]){
 			array(hapIDs, arrayMax(hapIDs), int) = u->a[k];
 			array(indexs, arrayMax(indexs), int) = k;
+			// Setting up the first nodes		
+			fprintf(stdout, "\ta%db%dt%d[label=\"%d, %d\"];\n", k, u->a[k], i, k, u->y[k]);
 			cnt++;
 			if (cnt == ac) break;
 		}
 	}
 	
 	//2. Printing graphs in the DOT language
-	fprintf(stdout, "digraph forward {\n");	
+	
 	//2a. Reading forward in the order and tracking haplotype indices
-	for (j = i+1; j < i+d; j++){
+	for (j = i; j < start+d; j++){
 		fprintf(stderr, "J : %d\n", j);
-		pbwtCursorForwardsReadAD(u,j); //Moving forward a single step (variant) 
 		cnt = 0; //set counter to 0 for new position
 		for (int k =0; k < p->M; k++){
-			int cur_ind = u->a[k]	;
-			int tmp , found =0 ;
+			int cur_hap = u->a[k];
+			int tmp;
+			BOOL found = FALSE;
 			for (tmp = 0 ; tmp < hapIDs->max; tmp++){
 				int *index = arrp(hapIDs, tmp, int);
-				if (*index == cur_ind){
-				 	found = 1;
+				if (*index == cur_hap){
+				 	found = TRUE;
 					break;
 				}
 			}
 			if (found) {
 				// Printing out a line of DOT file - making sure that all nodes are unique
-				fprintf(stdout, "\ta%db%dt%d[label=\"%d\"];", *arrp(indexs, tmp, int), cur_ind, j, *arrp(indexs, tmp, int));
-				fprintf(stdout, " a%db%dt%d[label=\"%d\"];", k, cur_ind, j+1, k);
-				fprintf(stdout, " a%db%dt%d -> a%db%dt%d [label=\"%d,%d\"];\n", *arrp(indexs, tmp, int), cur_ind, j, k, cur_ind, j+1, cur_ind,j);
+				int *prev = arrp(indexs, tmp, int);
+				fprintf(stderr, "prev : %d, cur : %d, tmp : %d, allele : %d\n", *arrp(hapIDs, tmp, int), cur_hap, tmp, u->y[k]);
+				fprintf(stdout, "\ta%db%dt%d[label=\"%d, %d\"];", *prev, cur_hap, j, *prev, u->y[*prev]);
+				fprintf(stdout, " a%db%dt%d[label=\"%d, %d\"];", k, cur_hap, j+1, k, u->y[k]);
+				fprintf(stdout, " a%db%dt%d -> a%db%dt%d [label=\"%d,%d\"];\n", *prev, cur_hap, j, k, cur_hap, j+1, cur_hap,j);
 				array(indexs, tmp, int) = k; // Set the current index of the indiv
 				cnt++;
 			}
 			if (cnt == ac) break; //Found all individuals we wanted
 		}
+		pbwtCursorForwardsReadAD(u,j); //Moving forward a single step (variant) 
 	}
 	fprintf(stdout, "}\n");
 	// Cleaning up
@@ -155,8 +163,7 @@ void printDot(PBWT *p, int k, int d){
 
 
 /*
- * Helper function for finding haplotype breakpoints
- *
+ * Function for finding haplotype breakpoints
  * */
 void findHapEndpoints(PBWT *p, int k, Array hapIDs, Array indexs,
 		Array fend, Array rend){
@@ -266,7 +273,7 @@ void siteHaplotypes(PBWT *p, int k){
 			Site *s1 = arrp(p->sites, *curREnd, Site) ;
 			Site *s2 = arrp(p->sites, *curFEnd, Site) ;
 			Sample *curSamp = arrp(p->samples, *curID/2, Sample); // Div by 2 to get sample ID	
-			fprintf(stdout, "MATCH \t%d\t%s\t%d\t%d\n", sk->x, sampleName(curSamp), s1->x, s2->x) ;
+			fprintf(stderr, "MATCH \t%d\t%s\t%d\t%d\n", sk->x, sampleName(curSamp), s1->x, s2->x) ;
 		}
 	}
 }

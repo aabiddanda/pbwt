@@ -369,7 +369,7 @@ int main (int argc, char *argv[])
       { nCheckPoint = atoi (argv[1]) ; argc -= 2 ; argv += 2 ; }
     else if (!strcmp (argv[0], "-subsample") && argc > 2)
       { p = pbwtSubSampleInterval (p, atoi(argv[1]), atoi(argv[2])) ; argc -= 3 ; argv += 3 ; }
-    else if (!strcmp (argv[0], "-selectSamples") && argc > 2)
+    else if (!strcmp (argv[0], "-selectSamples") && argc > 1)
       { FOPEN("selectSamples","r") ; p = pbwtSelectSamples (p, fp) ; argc -= 2 ; argv += 2 ; }
     else if (!strcmp (argv[0], "-subsites") && argc > 2)
       { p = pbwtSubSites (p, atof(argv[1]), atof(argv[2])) ; argc -= 3 ; argv += 3 ; }
