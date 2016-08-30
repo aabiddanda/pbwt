@@ -56,9 +56,7 @@ static void reportMatch (int ai, int bi, int start, int end)
     checkMatchMaximal (checkHapsA[ai], checkHapsB[bi], start, end, Ncheck) ;
 }
 
-/*
- * Function to compute allele sharing across individuals in a pbwt
- * */
+
 void alleleSharing(PBWT *p)
 {
 	int i, j; 
@@ -78,12 +76,10 @@ void alleleSharing(PBWT *p)
 			if (u->y[j]){
 				cnt += 1 ;
 				int id = u->a[j]/2 ; // Index of individual, not haplotype 
-				if (id != prev_id){
-					if (p->samples){
-						Sample *curSamp = arrp(p->samples, id, Sample) ;
-						fprintf(stdout, "%s\t", sampleName(curSamp)) ;
-						prev_id = id ;
-					}
+				if (id != prev_id && p->samples){
+					Sample *curSamp = arrp(p->samples, id, Sample) ; 
+          fprintf(stdout, "%s\t", sampleName(curSamp)) ;
+					prev_id = id ;
 				}
 			}
 			if (cnt == ac) break;
@@ -119,7 +115,8 @@ void printDot(PBWT *p, int start, int d){
 			array(hapIDs, arrayMax(hapIDs), int) = u->a[k];
 			array(indexs, arrayMax(indexs), int) = k;
 			// Setting up the first nodes		
-			fprintf(stdout, "\ta%db%dt%d[label=\"%d, %d\"];\n", k, u->a[k], i, k, u->y[k]);
+			fprintf(stdout, "\ta%db%dt%d[label=\"%d, %d\"];\n", k, u->a[k], i, 
+        k, u->y[k]);
 			cnt++;
 			if (cnt == ac) break;
 		}
@@ -129,7 +126,7 @@ void printDot(PBWT *p, int start, int d){
 	
 	//2a. Reading forward in the order and tracking haplotype indices
 	for (j = i; j < start+d; j++){
-		fprintf(stderr, "J : %d\n", j);
+	  fprintf(stderr, "J : %d\n", j);
 		cnt = 0; //set counter to 0 for new position
 		for (int k =0; k < p->M; k++){
 			int cur_hap = u->a[k];
@@ -242,10 +239,8 @@ void findHapEndpoints(PBWT *p, int k, Array hapIDs, Array indexs,
 		if (!broken) j++;
 	}
 
-
 	// Cleaning up
 	pbwtCursorDestroy(f);
-
 }	
 
 
@@ -275,6 +270,9 @@ void siteHaplotypes(PBWT *p, int k){
 			Sample *curSamp = arrp(p->samples, *curID/2, Sample); // Div by 2 to get sample ID	
 			fprintf(stderr, "MATCH \t%d\t%s\t%d\t%d\n", sk->x, sampleName(curSamp), s1->x, s2->x) ;
 		}
+    else{
+      die ("option -siteHaplotypes called without sites file or samples file specified") ;
+    }
 	}
 }
 
@@ -290,11 +288,11 @@ static void matchLongWithin1 (PBWT *p, int T,
   for (k = 0 ; k <= p->N ; ++k)
     for (i = 0 ; i < u->M ; ++i)
       { if (u->d[i] > T)
-	  { for (ia = 0 ; ia < na ; ++ia)
-	      for (ib = 0 ; ib < nb ; ++ib) 
-		(*report) (u->a[ia], u->a[ib], 0, k) ; /* 0 is wrong! - can't get start */
-	    na = 0 ; nb = 0 ;	               /* NB because of this matches won't check */
-	  }
+			  { for (ia = 0 ; ia < na ; ++ia)
+			      for (ib = 0 ; ib < nb ; ++ib) 
+							(*report) (u->a[ia], u->a[ib], 0, k) ; /* 0 is wrong! - can't get start */
+			    na = 0 ; nb = 0 ;	               /* NB because of this matches won't check */
+			  }
 	if (u->y[i] == 0)
 	  a[na++] = u->a[i] ;
 	else
@@ -302,6 +300,66 @@ static void matchLongWithin1 (PBWT *p, int T,
       }
   
   free(a) ; free(b) ;  pbwtCursorDestroy (u) ;
+}
+
+static void matchLongQuery (PBWT *p, int T, int query,
+			      void (*report)(int ai, int bi, int start, int end))
+/* alternative giving start - it turns out in tests that this is also faster, so use it */
+{
+  int i, i0 = 0, ia, ib, na = 0, nb = 0, dmin, k ;
+  PbwtCursor *u = pbwtCursorCreate (p, TRUE, TRUE) ;
+
+  for (k = 0 ; k <= p->N ; ++k)
+    { 
+    	for (i = 0 ; i < p->M ; ++i){
+    			fprintf(stdout, "pos:%d, d:%d, diff:%d, na:%d, nb:%d, a[i]:%d \n", k, u->d[i], k-T, na, nb, u->a[i]);
+
+			{ if (u->d[i] < k-T && u->a[i] == query)
+					
+			    { if (na && nb)		/* non-zero */
+						/*for (ia = i0 ; ia < i ; ++ia)
+						  for (ib = ia+1, dmin = 0 ; ib < i ; ++ib)
+						    { if (u->d[ib] > dmin) dmin = u->d[ib] ;
+						      
+										(*report) (u->a[ia], u->a[ib], dmin, k) ;
+						    }
+					      na = 0 ; nb = 0 ; i0 = i ;
+					    }*/
+					      fprintf(stdout, "QUERY \n");
+					  for(ia = i-1, dmin=u->d[i]; ia >= 0; --ia){ //find all guys before 
+				  		if(u->d[ia] > dmin) dmin = u->d[ia];
+			  			if(dmin < k-T){
+			  				if (u->y[i] != u->y[ia]){
+			  					(*report) (u->a[i], u->a[ia], dmin, k) ;
+				  			} 
+				  		}	else {
+				  				break;
+			  			}	
+					  }
+
+					  /*for(ia = i+1, dmax=u->d[i+1]; ia < u->M; ++ia){//same for after
+				  		if(u->d[ia] < dmax) dmax = u->d[ia];
+			  			if(dmax > k-T){
+			  				if (u->y[i] != u->y[ia]){
+			  					(*report) (u->a[ia], u->a[ib], dmax, k) ;
+				  			} 
+				  		}	else {
+				  				break;
+			  			}	
+					  }*/
+			}
+    }
+    //reset for next base
+	  na = 0; nb = 0;
+	  if (u->y[i] == 0)
+	    na++ ;
+	  else
+	    nb++ ;
+	}
+	pbwtCursorForwardsReadAD (u, k) ;
+}
+	// Cleanup Cursor
+  pbwtCursorDestroy (u) ;
 }
 
 static void matchLongWithin2 (PBWT *p, int T, 
@@ -313,21 +371,21 @@ static void matchLongWithin2 (PBWT *p, int T,
 
   for (k = 0 ; k <= p->N ; ++k)
     { for (i = 0 ; i < u->M ; ++i)
-	{ if (u->d[i] > k-T)
-	    { if (na && nb)		/* then there is something to report */
-		for (ia = i0 ; ia < i ; ++ia)
-		  for (ib = ia+1, dmin = 0 ; ib < i ; ++ib)
-		    { if (u->d[ib] > dmin) dmin = u->d[ib] ;
-		      if (u->y[ib] != u->y[ia])
-			(*report) (u->a[ia], u->a[ib], dmin, k) ;
-		    }
-	      na = 0 ; nb = 0 ; i0 = i ;
-	    }
-	  if (u->y[i] == 0)
-	    na++ ;
-	  else
-	    nb++ ;
-	}
+			{ if (u->d[i] > k-T){
+			   if (na && nb)		/* then there is something to report */
+						for (ia = i0 ; ia < i ; ++ia)
+						  for (ib = ia+1, dmin = 0 ; ib < i ; ++ib)
+						    { if (u->d[ib] > dmin) dmin = u->d[ib] ;
+						      if (u->y[ib] != u->y[ia])
+										(*report) (u->a[ia], u->a[ib], dmin, k) ;
+						    }
+					      na = 0 ; nb = 0 ; i0 = i ;
+			    }
+					  if (u->y[i] == 0)
+					    na++ ;
+					  else
+					    nb++ ;
+			}
       pbwtCursorForwardsReadAD (u, k) ;
     }
 
@@ -362,6 +420,38 @@ void matchMaximalWithin (PBWT *p, void (*report)(int ai, int bi, int start, int 
 
   pbwtCursorDestroy (u) ;
 }
+
+void pbwtMatchQueryWrapper (PBWT *p, int T, int query) 
+{
+  int k ;
+  PbwtCursor *u = pbwtCursorCreate (p, TRUE, TRUE) ;
+
+  if (!p || !p->yz) die ("option -longWithin called without a PBWT") ;
+  if (T < 0) die ("T %d for longWithin must be >= 0", T) ;
+
+  // Running out query function
+  matchLongQuery(p, T, query, reportMatch) ;
+
+ //  if (isStats)
+ //    { int i, nTot = 0 ;
+ //      long hTot = 0 ;
+
+ //      for (i = 0 ; i < arrayMax(matchLengthHist) ; ++i)
+	// if (arr(matchLengthHist, i, int))
+	//   { nTot += arr(matchLengthHist, i, int) ;
+	//     hTot += arr(matchLengthHist, i, int) * i ;
+	//     printf ("%d\t%d\n", i, arr(matchLengthHist, i, int)) ;
+	//   }
+ //      fprintf (logFile, "Average %.1f matches per sample\n", nTot/(double)p->M) ;
+ //      fprintf (logFile, "Average length %.1f\n", hTot/(double)nTot) ;
+ //    }
+
+  // pbwtCursorDestroy (u) ;
+  // if (isCheck) 
+  //   { int j ; for (j = 0 ; j < p->M ; ++j) free (checkHapsA[j]) ; free (checkHapsA) ; }
+}
+
+
 
 /* I think there is a good alternative, where I just go down through the list, keeping
    track of some things, but it is not worked out yet, let alone implemented.

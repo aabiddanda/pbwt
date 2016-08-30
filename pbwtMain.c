@@ -273,7 +273,7 @@ int main (int argc, char *argv[])
 	    fprintf (stderr, "  -printDot <start> <duration>	print haplotype sharing to the right\n") ;
 			fprintf (stderr, "  -printDotReverse <start> <duration>	print haplotype sharing to the left\n") ;
 			fprintf (stderr, "  -siteHaplotypes <k> 	print haplotype lengths that overlap site k\n") ;
-
+      fprintf (stderr, "  -test   print haplotype lengths that overlap site k\n") ;
 		}
 
   timeUpdate(logFile) ;
@@ -485,6 +485,11 @@ int main (int argc, char *argv[])
 				
 				alleleSharing(p); argc -= 2; argv += 2;
 			}
+    else if (!strcmp (argv[0], "-test") && argc > 2)
+      {      
+        pbwtMatchQueryWrapper(p, atoi(argv[1]), atoi(argv[2])); 
+        argc -= 3; argv += 3;
+      }
 		else
       die ("unrecognised command %s\nType pbwt without arguments for help", *argv) ;
     timeUpdate(logFile) ;
