@@ -179,10 +179,11 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 	int cnt = 0;
 
 	// Initializing all Arrays
-	for (int k=0; k < p->M; ++k){
-		if (f->y[k]){
-			array(hapIDs, arrayMax(hapIDs), int) = f->a[k];
-			array(indexs, arrayMax(indexs), int) = k;
+	int a;
+	for (int a=0; a < p->M; ++a){
+		if (f->y[a]){
+			array(hapIDs, arrayMax(hapIDs), int) = f->a[a];
+			array(indexs, arrayMax(indexs), int) = a;
 			array(fend, arrayMax(fend), int) = 0;
 			array(rend, arrayMax(rend), int) = p->N;
 			++cnt;
@@ -197,8 +198,9 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 	while(j <= p->N && !broken){
 		pbwtCursorForwardsReadAD(f,j);
 		cnt = 0; 
-		for (int k = 0; k < p->M; ++k){
-			int cur_hap = f->a[k];
+		int b,c;
+		for (int b = 0; b < p->M; ++b){
+			int cur_hap = f->a[b];
 			int tmp;
 			BOOL found = FALSE;
 			for (tmp = 0; tmp < hapIDs->max; tmp++){
@@ -207,32 +209,33 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 			}
 			if (found){
 				int *prev = arrp(indexs, tmp, int); 
-				array(indexs, tmp, int) = k; // setting the current index
+				array(indexs, tmp, int) = b; // setting the current index
 				cnt++;
 			}
 			if (ac == cnt) break;	//found all haps that carry kth variant
 		}
 
 		//2a. Checking for breakpoints
-		for (int a = 0; a < indexs->max; ++a){
-			if (*arrp(fend, a, int) == 0){ //We have not found an endpoint yet
-				int *i_a = arrp(indexs, a, int); // Current index of indiv a
+		for (c = 0; c < indexs->max; ++c){
+			if (*arrp(fend, c, int) == 0){ //We have not found an endpoint yet
+				int *i_a = arrp(indexs, c, int); // Current index of indiv a
 				BOOL ind_break = TRUE; 
-				for (int b=0; b < indexs->max; ++b){
+				int d;
+				for (d = 0; d < indexs->max; ++d){
 					if (a != b){ //cannot be same individual
-						int *i_b = arrp(indexs, b, int); // Current index of indiv b
+						int *i_b = arrp(indexs, d, int); // Current index of indiv b
 						int diff = *i_a - *i_b;
 						if (diff == -1 || diff == 1) {	//Checking for a neighbor		
 							ind_break = FALSE;	
 							// Setting the rev endpts by div array
-							if (*i_a > *i_b){	array(rend, a, int) = f->d[*i_a]; } 
-							else {array(rend, a, int) = f->d[*i_b];}
+							if (*i_a > *i_b){	array(rend, c, int) = f->d[*i_a]; } 
+							else {array(rend, c, int) = f->d[*i_b];}
 							break;
 						}
 					}
 				}
 				if (ind_break){ 
-					array(fend, a, int) = j; ++break_cnt; 
+					array(fend, c, int) = j; ++break_cnt; 
 				}
 			}
 		}
@@ -243,10 +246,11 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 	}
 
 	//3. Final check of endpoints
-	for (int a =0; a < fend->max; ++a) {
-		int cur_end = *arrp(fend, a, int);
+	int t;
+	for (t =0; t < fend->max; ++t) {
+		int cur_end = *arrp(fend, t, int);
 		// set to end of chromosome if not set
-		if (cur_end == 0) array(fend, a, int) = p->N - 1; 
+		if (cur_end == 0) array(fend, t, int) = p->N - 1; 
 		
 	}
 
