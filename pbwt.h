@@ -215,6 +215,7 @@ void matchSequencesSweepSparse (PBWT *p, PBWT *q, int nSparse,
 
 void alleleSharing(PBWT *p);
 void printDot(PBWT *p, int k, int d);
+void siteHaplotypesGeneral(PBWT *p, Array sites);
 
 /* pbwtImpute.c */
 
