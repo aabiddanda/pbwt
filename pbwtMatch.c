@@ -162,6 +162,7 @@ void printDot(PBWT *p, int start, int d){
 /*
  * Function for finding haplotype breakpoints for a single site
  * 	at index k
+ * TODO : need to clean up code appropriately (especially for looping variables)
  * */
 void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 		Array fend, Array rend)
@@ -199,7 +200,7 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 		pbwtCursorForwardsReadAD(f,j);
 		cnt = 0; 
 		int b,c;
-		for (int b = 0; b < p->M; ++b){
+		for (b = 0; b < p->M; ++b){
 			int cur_hap = f->a[b];
 			int tmp;
 			BOOL found = FALSE;
@@ -222,7 +223,7 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 				BOOL ind_break = TRUE; 
 				int d;
 				for (d = 0; d < indexs->max; ++d){
-					if (a != b){ //cannot be same individual
+					if (c != d){ //cannot be same individual
 						int *i_b = arrp(indexs, d, int); // Current index of indiv b
 						int diff = *i_a - *i_b;
 						if (diff == -1 || diff == 1) {	//Checking for a neighbor		
@@ -276,7 +277,8 @@ void siteHaplotypes(PBWT *p, PbwtCursor *u, int k){
 	Site *sk = arrp(p->sites, k, Site);	
 
 	//2. Fancy printing and output	
-	for (int i = 0; i < hapIDs->max; i++){
+	int i;
+	for (i = 0; i < hapIDs->max; i++){
 		int *curID = arrp(hapIDs, i, int);
 		int *curFEnd = arrp(fend, i, int);
 		int *curREnd = arrp(rend, i , int); 
@@ -304,11 +306,12 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 
 	//Iterating through a set of sites now
 	int snp_i = 0;
-	for (int i = 0; i < sites->max; ++i){
+	int i,j;
+	for (i = 0; i < sites->max; ++i){
 		Site *s = arrp(sites, i, Site);
 		BOOL snp_found = FALSE;
 		//1. Find the site by iterating through the PBWT (e.g. check the order)
-		for (int j = snp_i; j <= p->N; ++j){
+		for (j = snp_i; j <= p->N; ++j){
 			Site *cur_site = arrp(p->sites, j, Site);
 			if (cur_site->x == s->x){
 				snp_found = TRUE;
@@ -320,14 +323,9 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 		}
 
 		if (snp_found){
+			//2. Find all of the haplotypes covering this site
 			// Copying the pointer to the pbwtCursor
 			PbwtCursor *x = f;
-			
-			// fprintf(stdout, "Found SNP %d at location : %d\n", s->x, snp_i);
-			// fprintf(stdout, "AC (true) : %d\n", p->M - f->c);
-			// fprintf(stdout, "AC (copy) : %d\n", p->M - x->c);
-			//2. Find all of the haplotypes covering this site
-			// Note : currently this is done naively
 			siteHaplotypes(p, x, snp_i);
 		}
 	}
