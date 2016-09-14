@@ -98,7 +98,7 @@ void alleleSharing(PBWT *p)
 void printDot(PBWT *p, int start, int d){
 	
 	//1. Keep track of individuals with minor allele at site k
-	int i, j ;
+	int i, j, k;
 	PbwtCursor *u = pbwtCursorCreate(p, TRUE, TRUE);
 	for (i = 0 ; i < start; ++i) pbwtCursorForwardsReadAD(u,i) ; //Moving cursor to the kth variant
 	
@@ -111,7 +111,7 @@ void printDot(PBWT *p, int start, int d){
 	Array alleles = arrayCreate(p->M, int) ; // allele at current state
 	int cnt = 0;
 	// Reading through the haplotypes to get initial haplotype indices
-	for (int k = 0; k < p->M; ++k){
+	for (k = 0; k < p->M; ++k){
 		if (u->y[k]){
 			array(hapIDs, arrayMax(hapIDs), int) = u->a[k];
 			array(indexs, arrayMax(indexs), int) = k;
@@ -125,9 +125,9 @@ void printDot(PBWT *p, int start, int d){
 
 	//2a. Reading forward in the order and tracking haplotype indices
 	for (j = i; j <= start+d; ++j){
-	  fprintf(stderr, "J : %d\n", j);
+	  //fprintf(stderr, "J : %d\n", j);
 		cnt = 0; //set counter to 0 for new position
-		for (int k = 0; k < p->M; k++){
+		for (k = 0; k < p->M; k++){
 			int cur_hap = u->a[k];
 			int tmp;
 			BOOL found = FALSE;
@@ -181,7 +181,7 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 
 	// Initializing all Arrays
 	int a;
-	for (int a=0; a < p->M; ++a){
+	for (a=0; a < p->M; ++a){
 		if (f->y[a]){
 			array(hapIDs, arrayMax(hapIDs), int) = f->a[a];
 			array(indexs, arrayMax(indexs), int) = a;
