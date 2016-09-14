@@ -286,7 +286,7 @@ void siteHaplotypes(PBWT *p, PbwtCursor *u, int k){
 		Site *s1 = arrp(p->sites, *curREnd, Site) ;
 		Site *s2 = arrp(p->sites, *curFEnd, Site) ;
 		Sample *curSamp = arrp(p->samples, *curID/2, Sample); // Div by 2 to get sample ID	
-		fprintf(stderr, "MATCH \t%d\t%s\t%d\t%d\n", sk->x, sampleName(curSamp), s1->x, s2->x) ;
+		fprintf(stdout, "MATCH \t%d\t%s\t%d\t%d\n", sk->x, sampleName(curSamp), s1->x, s2->x) ;
 	}
 }
 
