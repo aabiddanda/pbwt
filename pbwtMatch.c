@@ -105,7 +105,6 @@ void printDot(PBWT *p, int start, int d){
 	fprintf(stdout, "digraph forward {\n");	
 
 	int ac = p->M - u->c; //Allele count for start variant	
-	// fprintf(stdout, "AC : %d\n", ac);
 	Array hapIDs = arrayCreate(p->M, int) ; //original haplotype indexes 
 	Array indexs = arrayCreate(p->M, int) ; //order at current state 
 	Array alleles = arrayCreate(p->M, int) ; // allele at current state
@@ -163,8 +162,7 @@ void printDot(PBWT *p, int start, int d){
  * 	at index k
  * TODO : need to clean up code appropriately (especially for looping variables)
  * */
-void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
-		Array fend, Array rend)
+void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs, Array fend, Array rend)
 {
 
 	if (k > p->N || k < 0) 
@@ -228,7 +226,9 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 						if (diff == -1 || diff == 1) {	//Checking for a neighbor		
 							ind_break = FALSE;	
 							// Setting the rev endpts by div array
-							if (*i_a > *i_b){	array(rend, c, int) = f->d[*i_a]; } 
+							if (*i_a > *i_b){
+								array(rend, c, int) = f->d[*i_a]; 
+							} 
 							else {array(rend, c, int) = f->d[*i_b];}
 							break;
 						}
@@ -247,11 +247,12 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 
 	//3. Final check of endpoints
 	int t;
-	for (t =0; t < fend->max; ++t) {
+	for (t = 0; t < fend->max; ++t) {
 		int cur_end = *arrp(fend, t, int);
 		// set to end of chromosome if not set
-		if (cur_end == 0) array(fend, t, int) = p->N - 1; 
-		
+		if (cur_end == 0){
+			array(fend, t, int) = p->N - 1;
+		} 
 	}
 
 }	
@@ -268,8 +269,8 @@ void siteHaplotypes(PBWT *p, PbwtCursor *u, int k){
 
  	Array hapIDs = arrayCreate(p->M, int); //original haplotype indexes 
 	Array indexs = arrayCreate(p->M, int); //order at current state 
-	Array fend = arrayCreate(p->M, int); //indices of endpoints for haplotypes 
-	Array rend = arrayCreate(p->M, int);	
+	Array fend = arrayCreate(p->M, int); //indices of forward endpts  
+	Array rend = arrayCreate(p->M, int); 	//indices of rev endpts
 	
 	//1. Get endpoints
 	findHapEndpoints(p, u, k, hapIDs, indexs, fend, rend);
@@ -289,9 +290,8 @@ void siteHaplotypes(PBWT *p, PbwtCursor *u, int k){
 	}
 }
 
-/*
-* Want to get haplotype sharing background of rare alleles
-* 	but now across all rare alleles
+/**
+* Haplotype sharing of rare alleles	
 */
 void siteHaplotypesGeneral(PBWT *p, Array sites){
 	
@@ -300,7 +300,7 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 		die ("option -siteHaplotypes called without sites file or samples file specified") ;
 	}
 
-	// Setting up current cursor (which we will copy and pass off to another)
+	// Setting up current cursor (will copy later)
 	PbwtCursor *f = pbwtCursorCreate(p, TRUE, TRUE);
 
 	//Iterating through a set of sites now
@@ -313,23 +313,19 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 		for (j = snp_i; j <= p->N; ++j){
 			Site *cur_site = arrp(p->sites, j, Site);
 			if (cur_site->x == s->x){
-				snp_found = TRUE;
-				snp_i = j;
+				snp_found = TRUE; snp_i = j;
 				break;
 			}	
-
 			pbwtCursorForwardsReadAD(f,j);
 		}
 
 		if (snp_found){
-			fprintf(stderr, "Found SNP : %d, BP : %d , AC : %d\n", snp_i, s->x, p->M - f->c);
 			//2. Find all of the haplotypes covering this site
-			// Copying the pointer to the pbwtCursor
+			//2a. Copying the pointer to the pbwtCursor
 			PbwtCursor *x = malloc(sizeof(PbwtCursor));
     	memcpy(x, f, sizeof(PbwtCursor));
 			
-			// pbwtCursorForwardsReadAD(f, j+1);
-			fprintf(stderr, "AC (test) : %d\n", p->M - x->c);
+			//2b. calling our original sitehaplotypes method
 			siteHaplotypes(p, x, snp_i);
 		}
 	}
