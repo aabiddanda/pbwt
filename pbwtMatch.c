@@ -125,7 +125,6 @@ void printDot(PBWT *p, int start, int d){
 
 	//2a. Reading forward in the order and tracking haplotype indices
 	for (j = i; j <= start+d; ++j){
-	  //fprintf(stderr, "J : %d\n", j);
 		cnt = 0; //set counter to 0 for new position
 		for (k = 0; k < p->M; k++){
 			int cur_hap = u->a[k];
@@ -323,9 +322,14 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 		}
 
 		if (snp_found){
+			fprintf(stderr, "Found SNP : %d, BP : %d , AC : %d\n", snp_i, s->x, p->M - f->c);
 			//2. Find all of the haplotypes covering this site
 			// Copying the pointer to the pbwtCursor
-			PbwtCursor *x = f;
+			PbwtCursor *x = malloc(sizeof(PbwtCursor));
+    	memcpy(x, f, sizeof(PbwtCursor));
+			
+			// pbwtCursorForwardsReadAD(f, j+1);
+			fprintf(stderr, "AC (test) : %d\n", p->M - x->c);
 			siteHaplotypes(p, x, snp_i);
 		}
 	}
