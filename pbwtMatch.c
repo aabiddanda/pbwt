@@ -56,7 +56,6 @@ static void reportMatch (int ai, int bi, int start, int end)
     checkMatchMaximal (checkHapsA[ai], checkHapsB[bi], start, end, Ncheck) ;
 }
 
-
 void alleleSharing(PBWT *p)
 {
 	int i, j; 
@@ -213,24 +212,25 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 		}
 
 		//2a. Checking for breakpoints
-		//TODO : speed this up?
 		for (c = 0; c < indexs->max; ++c){
 			if (*arrp(fend, c, int) == 0){ //We have not found an endpoint yet
 				int *i_a = arrp(indexs, c, int); // Current index of indiv a
 				BOOL ind_break = TRUE; 
-				for (d = c; d < indexs->max; ++d){
-					if (c != d){ //cannot be same individual
+				for (d = 0; d < indexs->max; ++d){
+					if (c != d) { //cannot be the same indiv
 						int *i_b = arrp(indexs, d, int); // Current index of indiv b
 						int diff = abs(*i_a - *i_b);
-						if (diff == 1) {	//Checking for a neighbor		
-							if (f->y[*i_a] != f->y[*i_b]){
+						if (diff == 1) {	//They are neighbors in the PBWT structure		
+							if (f->y[*i_a] != f->y[*i_b]){ // Here we have a break
+								// Setting reverse endpoints by divergence arrays of neighbors
 								if (*i_a > *i_b){
-									if (f->d[*i_a] < k){
-										array(rend, c, int) = f->d[*i_a];
-										array(rend, d, int) = f->d[*i_a];
-									}
+									array(rend, c, int) = f->d[*i_a];
+									array(rend, d, int) = f->d[*i_a];
 								}
-								break;
+								else{ // i_b > i_a
+									array(rend, c, int) = f->d[*i_b];
+									array(rend, d, int) = f->d[*i_b];
+								}
 							}
 							else{
 								ind_break = FALSE;
@@ -239,8 +239,8 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 						}
 					}
 				}
-				if (ind_break){ 
-					array(fend, c, int) = j; ++break_cnt; 
+				if (ind_break){
+					array(fend, c, int) = j; ++break_cnt;
 				}
 			}
 		}
@@ -298,6 +298,7 @@ void siteHaplotypes(PBWT *p, PbwtCursor *u, int k){
 	}
 }
 
+
 /**
 * Haplotype sharing of rare alleles	
 */
@@ -313,12 +314,14 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 
 	//Iterating through a set of sites now
 	int snp_i = 0;
-	int i, j;
+	int i;
 	Site *sk = arrp(sites, snp_i, Site);
 	for (i = 0 ; i <= p->N; ++i){
+		if (snp_i == sites->max) break;
 		Site *cur_site = arrp(p->sites, i, Site);
-		if (cur_site ->x == sk->x){
-			fprintf(stderr, "Found %d AC : %d\n", snp_i, (p->M - f->c) );
+		if ((cur_site->x == sk->x) && (cur_site->varD == sk->varD)){
+			fprintf(stderr, "Found %d\tAC : %d\n", snp_i, (p->M - f->c));
+			
 			//1. copying the cursor
 			PbwtCursor *x = malloc(sizeof(PbwtCursor));
    		memcpy(x, f, sizeof(PbwtCursor));
@@ -326,14 +329,12 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
    		siteHaplotypes(p, x, i);
 
    		//3. incrementing 
-			snp_i++;
+			++snp_i;
 			sk = arrp(sites, snp_i, Site); //move onto the next one
-
 		}
 		pbwtCursorForwardsReadAD(f,i);
 	}
 }
-
 
 
 static void matchLongWithin1 (PBWT *p, int T,
