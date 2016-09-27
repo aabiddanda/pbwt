@@ -213,11 +213,12 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 		}
 
 		//2a. Checking for breakpoints
+		//TODO : speed this up?
 		for (c = 0; c < indexs->max; ++c){
 			if (*arrp(fend, c, int) == 0){ //We have not found an endpoint yet
 				int *i_a = arrp(indexs, c, int); // Current index of indiv a
 				BOOL ind_break = TRUE; 
-				for (d = 0; d < indexs->max; ++d){
+				for (d = c; d < indexs->max; ++d){
 					if (c != d){ //cannot be same individual
 						int *i_b = arrp(indexs, d, int); // Current index of indiv b
 						int diff = abs(*i_a - *i_b);
@@ -312,32 +313,24 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 
 	//Iterating through a set of sites now
 	int snp_i = 0;
-	int i,j;
-	for (i = 0; i < sites->max; ++i){
-		Site *s = arrp(sites, i, Site);
-		BOOL snp_found = FALSE;
-		//1. Find the site by iterating through the PBWT (e.g. check the order)
-		for (j = snp_i; j <= p->N; ++j){
-			Site *cur_site = arrp(p->sites, j, Site);
-			if (cur_site->x == s->x){
-				snp_found = TRUE; snp_i = j;
-				break;
-			}	
-			pbwtCursorForwardsReadAD(f,j);
-		}
-
-		if (snp_found){
-			// fprintf(stderr, "SNP : %d\n", snp_i);
-			//2. Find all of the haplotypes covering this site
-			//2a. Copying the pointer to the pbwtCursor
+	int i, j;
+	Site *sk = arrp(sites, snp_i, Site);
+	for (i = 0 ; i <= p->N; ++i){
+		Site *cur_site = arrp(p->sites, i, Site);
+		if (cur_site ->x == sk->x){
+			fprintf(stderr, "Found %d AC : %d\n", snp_i, (p->M - f->c) );
+			//1. copying the cursor
 			PbwtCursor *x = malloc(sizeof(PbwtCursor));
-    	memcpy(x, f, sizeof(PbwtCursor));
-			
-			//2b. calling our original sitehaplotypes method
-			siteHaplotypes(p, x, snp_i);
+   		memcpy(x, f, sizeof(PbwtCursor));
+   		//2. Calling siteHaplotypes on this one
+   		siteHaplotypes(p, x, i);
 
-			// fprintf(stderr, "AC : %d\n", p->M - f->c);
+   		//3. incrementing 
+			snp_i++;
+			sk = arrp(sites, snp_i, Site); //move onto the next one
+
 		}
+		pbwtCursorForwardsReadAD(f,i);
 	}
 }
 
