@@ -99,7 +99,7 @@ void printDot(PBWT *p, int start, int d){
 	//1. Keep track of individuals with minor allele at site k
 	int i, j, k;
 	PbwtCursor *u = pbwtCursorCreate(p, TRUE, TRUE);
-	for (i = 0 ; i < start; ++i) pbwtCursorForwardsReadAD(u,i) ; //Moving cursor to the kth variant
+	for (i = 0 ; i < start; ++i) pbwtCursorForwardsRead(u) ; //Moving cursor to the kth variant
 	
 	fprintf(stdout, "digraph forward {\n");	
 
@@ -111,18 +111,20 @@ void printDot(PBWT *p, int start, int d){
 	// Reading through the haplotypes to get initial haplotype indices
 	for (k = 0; k < p->M; ++k){
 		if (u->y[k]){
+			// fprintf(stderr, "X : %d, k : %d, i : %d\n", u->a[k], k, i);
+			// fprintf(stderr, "K : %d\n", k);
 			array(hapIDs, arrayMax(hapIDs), int) = u->a[k];
 			array(indexs, arrayMax(indexs), int) = k;
 			array(alleles, arrayMax(alleles), int) = u->y[k];
 			++cnt;
 			if (cnt == ac) break;
 		}
-	}
-	
-	// //2. Printing graphs in the DOT language
+	}	
 
+	//2. Printing graphs in the DOT language
+	pbwtCursorForwardsRead(u);
 	//2a. Reading forward in the order and tracking haplotype indices
-	for (j = i; j <= start+d; ++j){
+	for (j = start; j <= start+d; ++j){
 		cnt = 0; //set counter to 0 for new position
 		for (k = 0; k < p->M; k++){
 			int cur_hap = u->a[k];
@@ -131,6 +133,7 @@ void printDot(PBWT *p, int start, int d){
 			for (tmp = 0 ; tmp < hapIDs->max; ++tmp){
 				int *index = arrp(hapIDs, tmp, int);
 				if (*index == cur_hap){ // We have found an individual that was originally tagged!
+					fprintf(stderr, "X : %d, k : %d, j : %d\n", u->a[k], k, j);
 				 	found = TRUE;
 					break;
 				}
@@ -148,7 +151,7 @@ void printDot(PBWT *p, int start, int d){
 			}
 			if (cnt == ac) break; //Found all individuals we needed
 		}
-		pbwtCursorForwardsReadAD(u,j); //Moving forward a single step (variant) 
+		pbwtCursorForwardsRead(u); //Moving forward a single step (variant) 
 	}
 	fprintf(stdout, "}\n");
 	// Cleaning up
@@ -159,7 +162,6 @@ void printDot(PBWT *p, int start, int d){
 /*
  * Function for finding haplotype breakpoints for a single site
  * 	at index k
- * TODO : need to clean up code appropriately (especially for looping variables)
  * */
 void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs, Array fend, Array rend)
 {
@@ -170,8 +172,8 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 	}
 		
 	//1. Filtering to individuals that only have the variant at site k
-	int i, j;
-	i = k-1;
+	int j = k-1;
+	int b,c,d; // iteration variables for loops
 	int ac = p->M - f->c; //Allele count
 	int cnt = 0;
 
@@ -188,21 +190,18 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 		}
 	}
 
- 	//2. Reading the haplotypes forwards (and setting endpoints)
-	j=i;
-	BOOL broken = FALSE; //all of the haplotypes have ended
+ 	//3. Reading the haplotypes forwards (and setting forward endpoints)
 	int break_cnt = 0;
-	while(j <= p->N && !broken){
-		pbwtCursorForwardsReadAD(f,j);
+	pbwtCursorForwardsReadAD(f,k);
+	for(j = k; j <= p->N ; ++j){
 		cnt = 0; 
-		int b,c,d; // iteration variables for loops
 		for (b = 0; b < p->M; ++b){
 			int cur_hap = f->a[b];
 			int tmp;
 			BOOL found = FALSE;
 			for (tmp = 0; tmp < hapIDs->max; tmp++){
 				int *index = arrp(hapIDs, tmp, int);
-				if (*index == cur_hap){ found = TRUE; break; }
+				if (*index == cur_hap){found = TRUE; break; }
 			}
 			if (found){
 				array(indexs, tmp, int) = b; // setting the current index
@@ -211,7 +210,29 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 			if (cnt == ac) break;	//found all haps that carry kth variant
 		}
 
-		//2a. Checking for breakpoints
+		if (j == k){ // so that they have transitioned to the same blocks
+			//2. set maximal reverse endpoints
+			for (c = 0; c <= indexs->max ; ++c){
+				for(d = 0; d <= indexs->max; d++){
+					if (c != d){
+						int *i_a = arrp(indexs, c, int);
+						int *i_b = arrp(indexs, d, int);
+						int diff = abs(*i_a - *i_b);
+						if (diff == 1){
+							int *c_rend = arrp(rend, c, int);
+							if (*i_a > *i_b && f->d[*i_a] < *c_rend){
+								array(rend, c, int) = f->d[*i_a];
+							}
+							else if (f->d[*i_b] < *c_rend){
+								array(rend, c, int) = f->d[*i_b];
+							}
+						}
+					}
+				}
+			}
+		}
+
+		//2a. Checking for forward breakpoints
 		for (c = 0; c < indexs->max; ++c){
 			if (*arrp(fend, c, int) == 0){ //We have not found an endpoint yet
 				int *i_a = arrp(indexs, c, int); // Current index of indiv a
@@ -220,17 +241,10 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 					if (c != d) { //cannot be the same indiv
 						int *i_b = arrp(indexs, d, int); // Current index of indiv b
 						int diff = abs(*i_a - *i_b);
-						if (diff == 1) {	//They are neighbors in the PBWT structure		
-							if (f->y[*i_a] != f->y[*i_b]){ // Here we have a break
-								// Setting reverse endpoints by divergence arrays of neighbors
-								if (*i_a > *i_b){
-									array(rend, c, int) = f->d[*i_a];
-									array(rend, d, int) = f->d[*i_a];
-								}
-								else{ // i_b > i_a
-									array(rend, c, int) = f->d[*i_b];
-									array(rend, d, int) = f->d[*i_b];
-								}
+						if (diff == 1) {	//They are neighbors in the PBWT structure
+							int c_rend = *arrp(rend, c, int);		
+							if ((f->y[*i_a] != f->y[*i_b])){ // Here we have a break
+
 							}
 							else{
 								ind_break = FALSE;
@@ -240,14 +254,13 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 					}
 				}
 				if (ind_break){
-					array(fend, c, int) = j; ++break_cnt;
+					array(fend, c, int) = j; 
+					++break_cnt;
 				}
 			}
 		}
-
-		//2b. Checking that all are broken
-		if (break_cnt == ac) broken = TRUE ;
-		if (!broken) ++j;
+		if (break_cnt == ac) break;
+		pbwtCursorForwardsRead(f); // No need to update the divergence arrays anymore
 	}
 
 	//3. Final check of endpoints
@@ -320,7 +333,7 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 		if (snp_i == sites->max) break;
 		Site *cur_site = arrp(p->sites, i, Site);
 		if ((cur_site->x == sk->x) && (cur_site->varD == sk->varD)){
-			fprintf(stderr, "Found %d\tAC : %d\n", snp_i, (p->M - f->c));
+			fprintf(stderr, "Found %d, %d\tAC : %d\n", snp_i, i, (p->M - f->c));
 			
 			//1. copying the cursor
 			PbwtCursor *x = malloc(sizeof(PbwtCursor));
