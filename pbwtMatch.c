@@ -278,6 +278,60 @@ void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs,
 	}
 }	
 
+/* 
+* TODO : test function to look at maximal matching
+* 	- it seems to work well at first but will need
+*/
+void hapEndpoints (PBWT *p, PbwtCursor *u, int x)
+/* algorithm 4 in paper */
+{
+  int i, j, k, m, n, a ;
+  int break_cnt = 0;
+	int ac = (p->M - u->c);
+  HASH hapIDs = hashCreate(ac); //TODO : explore the hash a little bit more
+  for (a = 0; a < p->M; ++a){
+  	if (u->y[a]) hashAdd(hapIDs, HASH_INT(u->a[a]));
+  }
+
+  for (k = x ; k <= p->N; ++k){ 
+  	for (i = 0 ; i < u->M ; ++i){
+  		if (!hashFind(hapIDs, HASH_INT(u->a[i]))) goto nexti;
+			m = i-1 ; n = i+1 ;
+		  if (u->d[i] <= u->d[i+1])
+		    while (u->d[m+1] <= u->d[i])
+		      if (u->y[m--] == u->y[i] && k < p->N) goto nexti ;
+		  if (u->d[i] >= u->d[i+1])
+		    while (u->d[n] <= u->d[i+1])
+		      if (u->y[n++] == u->y[i] && k < p->N) goto nexti ;
+		  if (matchLengthHist)
+		    ++array(matchLengthHist, (u->d[i]<u->d[i+1]) ? k-u->d[i] : k-u->d[i+1], int) ;
+		  else { 
+		  	for (j = m+1 ; j < i ; ++j){
+		  		if (hashFind(hapIDs, HASH_INT(u->a[i])) * hashFind(hapIDs, HASH_INT(u->a[j])) != 0){  
+		  			if (u->d[i] <= x){
+		  				fprintf(stdout, "%d\t%d\t%d\t%d\n", u->a[i], u->a[j], u->d[i], k);
+		  			}
+		  			else ++break_cnt;
+		  		}
+		    }
+		    for (j = i+1 ; j < n ; ++j){
+		    	if (hashFind(hapIDs, HASH_INT(u->a[i])) * hashFind(hapIDs, HASH_INT(u->a[j])) != 0){
+		    		if (u->d[i+1] <= x){
+		    			// TODO : print something useful in here
+		  				fprintf(stdout, "%d\t%d\t%d\t%d\n", u->a[i], u->a[j], u->d[i], k);
+		  			}
+		  			else ++break_cnt;
+		  		}
+		  	}
+		  }
+			nexti: ;
+		}
+		if (break_cnt == ac) break;
+    pbwtCursorForwardsReadAD (u, k) ;
+  }
+  // pbwtCursorDestroy (u) ;
+}
+
 
 /**
  * Finding haplotype lengths of individuals that carry variant at site k 
@@ -334,12 +388,12 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 		Site *cur_site = arrp(p->sites, i, Site);
 		if ((cur_site->x == sk->x) && (cur_site->varD == sk->varD)){
 			fprintf(stderr, "Found %d, %d\tAC : %d\n", snp_i, i, (p->M - f->c));
-			
-			//1. copying the cursor
+
+			// //1. copying the cursor
 			PbwtCursor *x = malloc(sizeof(PbwtCursor));
    		memcpy(x, f, sizeof(PbwtCursor));
-   		//2. Calling siteHaplotypes on this one
-   		siteHaplotypes(p, x, i);
+   // 		//2. Calling siteHaplotypes on this one
+			hapEndpoints(p, x, i);
 
    		//3. incrementing 
 			++snp_i;
@@ -348,6 +402,7 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 		pbwtCursorForwardsReadAD(f,i);
 	}
 }
+
 
 
 static void matchLongWithin1 (PBWT *p, int T,
