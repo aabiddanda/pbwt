@@ -271,7 +271,6 @@ int main (int argc, char *argv[])
       fprintf (stderr, "  -4hapsStats               mu:rho 4 hap test stats\n") ;
     	fprintf (stderr, "  -alleleShare <file>       compute allele-sharing for variants in sites file\n") ;
 	    fprintf (stderr, "  -printDot <start> <duration>	print haplotype sharing to the right\n") ;
-			fprintf (stderr, "  -printDotReverse <start> <duration>	print haplotype sharing to the left\n") ;
 			fprintf (stderr, "  -siteHaplotypes <site file> 	print haplotype lengths that overlap sites\n") ;
 		}
 
