@@ -258,7 +258,7 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 				if (f->y[a]){
 					int x = f->a[a];
 					int z = ((x + k + 1)*(x+k))/ 2 + k; // Cantor Pairing Function
-					fprintf(stderr, "%d\t%d\t%d\n", k, f->a[a], z);
+					fprintf(stderr, "SNP(i):%d\tPos: %d\tHap: %d\tCantor:%d\n", snp_i, k, f->a[a], z);
 					hashAdd(hapIDs, HASH_INT(x));
 					hashAdd(hapIDs_position, HASH_INT(z));
 					++hapCount;
