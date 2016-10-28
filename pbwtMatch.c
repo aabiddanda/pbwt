@@ -243,7 +243,7 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 	HASH hapIDs_position = hashCreate(p->M); //Crude way to map back to individuals and positions
 	Array site_pos = arrayCreate(p->N, int) ; //site indices
 	//Iterating through a set of sites now
-	int i, j, k, m, n, a ;
+	int i, j, k, m, n, a, b;
 	int snp_i = 0;
 	int hapCount = 0;
 
@@ -294,7 +294,7 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 	  		if (hashFind(hapIDs, HASH_INT(f->a[j])) != 0){  
 	  			int cur_pos = -1;
 	  			int zi = -1;
-	  			for(int b = 0; b < arrayMax(site_pos); b++){
+	  			for(b = 0; b < arrayMax(site_pos); b++){
 	  				int a = *arrp(site_pos, b, int); //past variant position
 	  				int w1 = f->a[i] + a;
 	  				int x1 = (w1*(w1+1))/2 + a; //inverting Cantor pairing
@@ -322,7 +322,7 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 	    	if (hashFind(hapIDs, HASH_INT(f->a[j])) != 0){
 	  			int cur_pos = -1;
 	  			int zi = -1;
-	  			for(int b = 0; b < arrayMax(site_pos); b++){
+	  			for(b = 0; b < arrayMax(site_pos); b++){
 	  				int a = *arrp(site_pos, b, int); //past variant position
 	  				int w1 = f->a[i] + a;
 	  				int x1 = (w1*(w1+1))/2 + a; //inverting Cantor pairing
