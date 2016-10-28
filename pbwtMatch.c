@@ -159,125 +159,6 @@ void printDot(PBWT *p, int start, int d){
 }
 
 
-/*
- * Function for finding haplotype breakpoints for a single site
- * 	at index k
- * */
-void findHapEndpoints(PBWT *p, PbwtCursor *f, int k, Array hapIDs, Array indexs, Array fend, Array rend)
-{
-
-	if (k > p->N || k < 0) 
-	{
-		die ("Index k = %d is out of range\nType pbwt without arguments for help", k);
-	}
-		
-	//1. Filtering to individuals that only have the variant at site k
-	int j = k-1;
-	int b,c,d; // iteration variables for loops
-	int ac = p->M - f->c; //Allele count
-	int cnt = 0;
-
-	// Initializing all Arrays
-	int a;
-	for (a=0; a < p->M; ++a){
-		if (f->y[a]){
-			array(hapIDs, arrayMax(hapIDs), int) = f->a[a];
-			array(indexs, arrayMax(indexs), int) = a;
-			array(fend, arrayMax(fend), int) = 0;
-			array(rend, arrayMax(rend), int) = p->N;
-			++cnt;
-			if (cnt == ac) break;
-		}
-	}
-
- 	//3. Reading the haplotypes forwards (and setting forward endpoints)
-	int break_cnt = 0;
-	pbwtCursorForwardsReadAD(f,k);
-	for(j = k; j <= p->N ; ++j){
-		cnt = 0; 
-		for (b = 0; b < p->M; ++b){
-			int cur_hap = f->a[b];
-			int tmp;
-			BOOL found = FALSE;
-			for (tmp = 0; tmp < hapIDs->max; tmp++){
-				int *index = arrp(hapIDs, tmp, int);
-				if (*index == cur_hap){found = TRUE; break; }
-			}
-			if (found){
-				array(indexs, tmp, int) = b; // setting the current index
-				cnt++;
-			}
-			if (cnt == ac) break;	//found all haps that carry kth variant
-		}
-
-		if (j == k){ // so that they have transitioned to the same blocks
-			//2. set maximal reverse endpoints
-			for (c = 0; c <= indexs->max ; ++c){
-				for(d = 0; d <= indexs->max; d++){
-					if (c != d){
-						int *i_a = arrp(indexs, c, int);
-						int *i_b = arrp(indexs, d, int);
-						int diff = abs(*i_a - *i_b);
-						if (diff == 1){
-							int *c_rend = arrp(rend, c, int);
-							if (*i_a > *i_b && f->d[*i_a] < *c_rend){
-								array(rend, c, int) = f->d[*i_a];
-							}
-							else if (f->d[*i_b] < *c_rend){
-								array(rend, c, int) = f->d[*i_b];
-							}
-						}
-					}
-				}
-			}
-		}
-
-		//2a. Checking for forward breakpoints
-		for (c = 0; c < indexs->max; ++c){
-			if (*arrp(fend, c, int) == 0){ //We have not found an endpoint yet
-				int *i_a = arrp(indexs, c, int); // Current index of indiv a
-				BOOL ind_break = TRUE; 
-				for (d = 0; d < indexs->max; ++d){
-					if (c != d) { //cannot be the same indiv
-						int *i_b = arrp(indexs, d, int); // Current index of indiv b
-						int diff = abs(*i_a - *i_b);
-						if (diff == 1) {	//They are neighbors in the PBWT structure
-							int c_rend = *arrp(rend, c, int);		
-							if ((f->y[*i_a] != f->y[*i_b])){ // Here we have a break
-
-							}
-							else{
-								ind_break = FALSE;
-								break;
-							}
-						}
-					}
-				}
-				if (ind_break){
-					array(fend, c, int) = j; 
-					++break_cnt;
-				}
-			}
-		}
-		if (break_cnt == ac) break;
-		pbwtCursorForwardsRead(f); // No need to update the divergence arrays anymore
-	}
-
-	//3. Final check of endpoints
-	int t;
-	for (t = 0; t < indexs->max; ++t) {
-		int cur_fend = *arrp(fend, t, int);
-		int cur_rend = *arrp(rend, t, int);
-		// set to end of chromosome if not set
-		if (cur_fend == 0){
-			array(fend, t, int) = p->N - 1;
-		} 
-		if (cur_rend == p->N){
-			array(rend, t, int) = 0;
-		}
-	}
-}	
-
 /* 
 * Finding haplotype endpoints for all allele carriers at site x
 */
@@ -293,10 +174,7 @@ void hapEndpoints (PBWT *p, int x)
   HASH hapIDs = hashCreate(ac);
   HASH found = hashCreate(ac);
   for (a = 0; a < p->M; ++a){
-  	if (u->y[a]){
-  		// fprintf(stdout, "Hap : %d\t D : %d\n", u->a[a], u->d[a]);
-  		hashAdd(hapIDs, HASH_INT(u->a[a]));
-  	}
+  	if (u->y[a]) hashAdd(hapIDs, HASH_INT(u->a[a]));
   }
 
   for (k = x ; k <= p->N; ++k){ 
@@ -323,7 +201,6 @@ void hapEndpoints (PBWT *p, int x)
 	  					hashAdd(found, HASH_INT(u->a[i]));
 	  					++break_cnt;
 	  				}
-	  				// fprintf(stdout, "Break CNT : %d\n", break_cnt);
 	  			}
 	  		}
 	    }
@@ -335,11 +212,9 @@ void hapEndpoints (PBWT *p, int x)
 	  					hashAdd(found, HASH_INT(u->a[i]));
 	  					++break_cnt;
 	  				}
-	  				// fprintf(stdout, "Break CNT : %d\n", break_cnt);
 	  			}
 	  		}
 	  	}
-	  	// if (break_cnt >= ac) break;
 			nexti: ;
 		}
 		if (break_cnt >= ac) break;
@@ -349,37 +224,7 @@ void hapEndpoints (PBWT *p, int x)
   pbwtCursorDestroy(u) ;
 }
 
-/**
- * Finding haplotype lengths of individuals that carry variant at site k 
- * 	where the haplotype intersects site k 
- */
-void siteHaplotypes(PBWT *p, PbwtCursor *u, int k){
- 	if (!p->sites || !p->samples){
-      die ("option -siteHaplotypes called without sites file or samples file specified") ;
- 	}
 
- 	Array hapIDs = arrayCreate(p->M, int); //original haplotype indexes 
-	Array indexs = arrayCreate(p->M, int); //order at current state 
-	Array fend = arrayCreate(p->M, int); //indices of forward endpts  
-	Array rend = arrayCreate(p->M, int); 	//indices of rev endpts
-	
-	//1. Get endpoints
-	findHapEndpoints(p, u, k, hapIDs, indexs, fend, rend);
-	Site *sk = arrp(p->sites, k, Site);	
-
-	//2. Fancy printing and output	
-	int i;
-	for (i = 0; i < hapIDs->max; i++){
-		int *curID = arrp(hapIDs, i, int);
-		int *curFEnd = arrp(fend, i, int);
-		int *curREnd = arrp(rend, i , int); 
-
-		Site *s1 = arrp(p->sites, *curREnd, Site) ;
-		Site *s2 = arrp(p->sites, *curFEnd, Site) ;
-		Sample *curSamp = arrp(p->samples, *curID/2, Sample); // Div by 2 to get sample ID	
-		fprintf(stdout, "MATCH \t%d\t%s\t%d\t%d\n", sk->x, sampleName(curSamp), s1->x, s2->x);
-	}
-}
 
 /**
 * Haplotype sharing of rare alleles	
@@ -391,31 +236,115 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 		die ("option -siteHaplotypes called without sites file or samples file specified") ;
 	}
 
-	// Setting up current cursor (to copy off later)
+
+	// Setting up cursor to traverse things
 	PbwtCursor *f = pbwtCursorCreate(p, TRUE, TRUE);
-
+	HASH hapIDs = hashCreate(p->M); // original haplotype ids
+	HASH hapIDs_position = hashCreate(p->M); //Crude way to map back to individuals and positions
+	Array site_pos = arrayCreate(p->N, int) ; //site indices
 	//Iterating through a set of sites now
+	int i, j, k, m, n, a ;
 	int snp_i = 0;
-	int i;
-	int a;
+	int hapCount = 0;
+
 	Site *sk = arrp(sites, snp_i, Site);
-	for (i = 0 ; i <= p->N; ++i){
-		if (snp_i == sites->max) break;
-		Site *cur_site = arrp(p->sites, i, Site);
+	for (k = 0 ; k < p->N; ++k){
+		// if (snp_i == sites->max) break;
+		Site *cur_site = arrp(p->sites, k, Site);
 		if ((cur_site->x == sk->x) && (cur_site->varD == sk->varD)){
-			fprintf(stderr, "Found %d, %d\tAC : %d\n", snp_i, i, (p->M - f->c));
+			// fprintf(stderr, "Found %d, %d\tAC : %d\n", snp_i, k, (p->M - f->c));
+			
+			//1. Marking down the current SNP
+			BOOL added = FALSE;
+			for (a = 0; a < p->M; ++a){
+				if (f->y[a]){
+					int x = f->a[a];
+					int z = ((x + k + 1)*(x+k))/ 2 + k; // Using the Cantor Pairing Function
+					fprintf(stderr, "%d\t%d\t%d\n", k, f->a[a], z);
+					hashAdd(hapIDs, HASH_INT(x));
+					hashAdd(hapIDs_position, HASH_INT(z));
+					++hapCount;
+					if (!added){
+						array(site_pos, arrayMax(site_pos), int) = k;
+						added = TRUE;
+					}
+				}
+			}
 
-   		//2. Calling siteHaplotypes on the copied cursor
-			hapEndpoints(p, i);
-
-   		//3. incrementing 
+   		//2. Incrementing to the next snp in the sites file
 			++snp_i;
 			sk = arrp(sites, snp_i, Site); //move onto the next one
 		}
-		pbwtCursorForwardsReadAD(f,i);
+
+		// 3. Check for maximal matches
+		for (i = 0 ; i < f->M ; ++i){
+  		if (!hashFind(hapIDs, HASH_INT(f->a[i]))) goto nexti;
+			m = i-1 ; n = i+1 ;
+		  if (f->d[i] <= f->d[i+1]){
+		    while (f->d[m+1] <= f->d[i]){
+		      if (f->y[m--] == f->y[i] && k < p->N) goto nexti ;
+		    }
+		  }
+		  if (f->d[i] >= f->d[i+1]){
+		    while (f->d[n] <= f->d[i+1]){
+		      if (f->y[n++] == f->y[i] && k < p->N) goto nexti ;
+		    }
+		  }
+
+		  //Iterating through top half of pbwt
+	  	for (j = m+1 ; j < i ; ++j){
+	  		if (hashFind(hapIDs, HASH_INT(f->a[j])) != 0){  
+	  			int cur_pos = -1;
+	  			int zi = -1;
+	  			for(int b = 0; b < arrayMax(site_pos); b++){
+	  				int a = *arrp(site_pos, b, int); //past variant position
+	  				int w1 = f->a[i] + a;
+	  				int x1 = (w1*(w1+1))/2 + a; //inverting Cantor pairing
+	  				int w2 = f->a[j] + a;
+	  				int x2 = (w2*(w2+1))/2 + a; //inverting Cantor pairing
+	  				if (hashFind(hapIDs_position, HASH_INT(x1)) &&  hashFind(hapIDs_position, HASH_INT(x2))){
+	  						cur_pos = a;
+	  						zi = x1;
+	  						break;
+	  				}
+	  			}
+	  			if ((cur_pos > 0) && (f->d[i] <= cur_pos)){
+	  				fprintf(stdout, "%d\t%d\t%d\t%d\t%d\n", cur_pos, f->a[i], f->a[j], f->d[i], k);
+	  				hashRemove(hapIDs_position, HASH_INT(zi));
+	  				--hapCount;
+	  			}
+	  		}
+	    }
+	    // Iterating through the bottom half of the pbwt
+	    for (j = i+1 ; j < n ; ++j){
+	    	if (hashFind(hapIDs, HASH_INT(f->a[j])) != 0){
+	  			int cur_pos = -1;
+	  			int zi = -1;
+	  			for(int b = 0; b < arrayMax(site_pos); b++){
+	  				int a = *arrp(site_pos, b, int); //past variant position
+	  				int w1 = f->a[i] + a;
+	  				int x1 = (w1*(w1+1))/2 + a; //inverting Cantor pairing
+	  				int w2 = f->a[j] + a;
+	  				int x2 =  (w2*(w2+1))/2 + a; //inverting Cantor pairing 
+	  				if (hashFind(hapIDs_position, HASH_INT(x1)) && hashFind(hapIDs_position, HASH_INT(x2))){
+	  						cur_pos = a;
+	  						zi = x1;
+	  						break;
+	  				}
+	  			}
+	    		if ((cur_pos > 0) && (f->d[i+1] <= cur_pos)){
+	  				fprintf(stdout, "%d\t%d\t%d\t%d\t%d\n", cur_pos, f->a[i], f->a[j], f->d[i+1], k);
+	  				hashRemove(hapIDs_position, HASH_INT(zi));
+	  				--hapCount;
+	  			}
+	  		}
+	  	}
+			nexti: ;
+		}
+		if ((snp_i == site->max) && (hapCount == snp_i)) break;
+		pbwtCursorForwardsReadAD(f,k);
 	}
 }
-
 
 
 static void matchLongWithin1 (PBWT *p, int T,
@@ -442,7 +371,6 @@ static void matchLongWithin1 (PBWT *p, int T,
   
   free(a) ; free(b) ;  pbwtCursorDestroy (u) ;
 }
-
 
 
 static void matchLongWithin2 (PBWT *p, int T, 
