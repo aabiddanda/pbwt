@@ -251,15 +251,13 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 	for (k = 0 ; k < p->N; ++k){
 		// if (snp_i == sites->max) break;
 		Site *cur_site = arrp(p->sites, k, Site);
-		if ((cur_site->x == sk->x) && (cur_site->varD == sk->varD)){
-			// fprintf(stderr, "Found %d, %d\tAC : %d\n", snp_i, k, (p->M - f->c));
-			
+		if ((cur_site->x == sk->x) && (cur_site->varD == sk->varD)){			
 			//1. Marking down the current SNP
 			BOOL added = FALSE;
 			for (a = 0; a < p->M; ++a){
 				if (f->y[a]){
 					int x = f->a[a];
-					int z = ((x + k + 1)*(x+k))/ 2 + k; // Using the Cantor Pairing Function
+					int z = ((x + k + 1)*(x+k))/ 2 + k; // Cantor Pairing Function
 					fprintf(stderr, "%d\t%d\t%d\n", k, f->a[a], z);
 					hashAdd(hapIDs, HASH_INT(x));
 					hashAdd(hapIDs_position, HASH_INT(z));
@@ -309,7 +307,11 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 	  				}
 	  			}
 	  			if ((cur_pos > 0) && (f->d[i] <= cur_pos)){
-	  				fprintf(stdout, "%d\t%d\t%d\t%d\t%d\n", cur_pos, f->a[i], f->a[j], f->d[i], k);
+	  				//TODO : should print out snp position + indiv iDs
+	  				Site *s = arrp(p->sites, cur_pos, Site);
+	  				Site *d1 = arrp(p->sites, f->d[i], Site);
+	  				Site *k1 = arrp(p->sites, k, Site);
+	  				fprintf(stdout, "%d\t%d\t%d\t%d\t%d\n", s->x, f->a[i], f->a[j], d1->x, k1->x);
 	  				hashRemove(hapIDs_position, HASH_INT(zi));
 	  				--hapCount;
 	  			}
@@ -333,7 +335,10 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 	  				}
 	  			}
 	    		if ((cur_pos > 0) && (f->d[i+1] <= cur_pos)){
-	  				fprintf(stdout, "%d\t%d\t%d\t%d\t%d\n", cur_pos, f->a[i], f->a[j], f->d[i+1], k);
+	  				Site *s = arrp(p->sites, cur_pos, Site);
+	  				Site *d1 = arrp(p->sites, f->d[i+1], Site);
+	  				Site *k1 = arrp(p->sites, k, Site);
+	  				fprintf(stdout, "%d\t%d\t%d\t%d\t%d\n", s->x, f->a[i], f->a[j], d1->x, k1->x);
 	  				hashRemove(hapIDs_position, HASH_INT(zi));
 	  				--hapCount;
 	  			}
@@ -341,7 +346,7 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 	  	}
 			nexti: ;
 		}
-		if ((snp_i == site->max) && (hapCount == snp_i)) break;
+		if ((snp_i == sites->max) && (hapCount == snp_i)) break;
 		pbwtCursorForwardsReadAD(f,k);
 	}
 }
