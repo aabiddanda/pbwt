@@ -101,7 +101,7 @@ static void exportSiteInfo (PBWT *p, FILE *fp, int f1, int f2)
 
 /************ AF distribution **************/
 
-static void siteFrequencySpectrum (PBWT *p)
+static void siteFrequencySpectrum (PBWT *p, FILE *fp)
 {
   int i, j, n ;
   PbwtCursor *u = pbwtCursorCreate (p, TRUE, TRUE) ;
@@ -116,15 +116,12 @@ static void siteFrequencySpectrum (PBWT *p)
 
   timeUpdate(logFile) ;
 
-  FILE *fp ;
-  if (p->sites) { fp = fopen ("sites.freq", "w") ; if (!fp) die ("can't open sites.freq") ; }
-
   for (i = 0 ; i < p->N ; ++i)
     { ++array(hist, p->M - u->c, int) ;
       if (p->sites)
 	{ Site *s = arrp(p->sites,i,Site) ;
 	  s->freq = 1.0 - (double)u->c/(double)p->M ;
-	  fprintf (fp, "%s\t%d\t%.6f\t%s\n", p->chrom, s->x, s->freq, dictName (variationDict, s->varD)) ;
+	  fprintf (fp, "%s\t%d\t%.6f\t%s\t%d\n", p->chrom, s->x, s->freq, dictName (variationDict, s->varD), (p->M - u->c)) ;
 	}
       pbwtCursorForwardsRead (u) ;
     }
@@ -263,7 +260,7 @@ int main (int argc, char *argv[])
       fprintf (stderr, "  -paint <fileNameRoot> [n] output painting co-ancestry matrix to fileroot, optionally specififying the number per region\n") ;
       fprintf (stderr, "  -paintSparse <fileNameRoot> [n] output sparse painting to fileroot, optionally specififying the number per region\n") ;
       fprintf (stderr, "  -pretty <file> <k>        pretty plot at site k\n") ;
-      fprintf (stderr, "  -sfs                      print site frequency spectrum (log scale) - also writes sites.freq file\n") ;
+      fprintf (stderr, "  -sfs  <out>                  print site frequency spectrum (log scale) - also writes <out>.sites.freq file\n") ;
       fprintf (stderr, "  -refFreq <file>           read site frequency information into the refFreq field of current sites\n") ;
       fprintf (stderr, "  -siteInfo <file> <kmin> <kmax> export PBWT information at sites with allele count kmin <= k < kmax\n") ;
       fprintf (stderr, "  -buildReverse             build reverse pbwt\n") ;
@@ -397,8 +394,17 @@ int main (int argc, char *argv[])
       { FOPEN("prettyPlot","w") ; prettyPlot (p, fp, atoi(argv[2])) ; FCLOSE ; argc -= 3 ; argv += 3 ; }
     else if (!strcmp (argv[0], "-siteInfo") && argc > 3)
       { FOPEN("siteInfo","w") ; exportSiteInfo (p, fp, atoi(argv[2]), atoi(argv[3])) ; FCLOSE ; argc -= 4 ; argv += 4 ; }
-    else if (!strcmp (argv[0], "-sfs"))
-      { siteFrequencySpectrum (p) ; argc -= 1 ; argv += 1 ; }
+    else if (!strcmp (argv[0], "-sfs") && argc > 1)
+      { 
+        // Create the file here. 
+        FILE *fp ;
+        if (p->sites) { 
+          fp = fopenTag(argv[1], "sites.freq", "w") ; 
+          if (!fp) die ("Can't open file pointer!") ; 
+        }
+        // Now call sfs method
+        siteFrequencySpectrum (p, fp); argc -= 2 ; argv += 2 ; 
+      }
     else if (!strcmp (argv[0], "-refFreq") && argc > 1)
       { FOPEN("refFreq","r") ; pbwtReadRefFreq (p, fp) ; FCLOSE ; argc -= 2 ; argv += 2 ; }
     else if (!strcmp (argv[0], "-maxWithin"))
