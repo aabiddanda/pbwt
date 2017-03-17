@@ -61,8 +61,8 @@ void alleleSharing(PBWT *p)
 	int i, j; 
 	PbwtCursor *u = pbwtCursorCreate(p, TRUE, TRUE);
 	
-	for (i = 0; i < p->N; i++){ 
-		pbwtCursorForwardsReadAD(u, i) ;	
+	for (i = 0; i < p->N; ++i){ 
+		//pbwtCursorForwardsRead(u) ;	
 		if (p->sites){
 			Site *s = arrp(p->sites, i, Site) ;
 			fprintf(stdout, "%s\t%d\t%s\t", p->chrom, s->x, 
@@ -71,7 +71,7 @@ void alleleSharing(PBWT *p)
 
 		int prev_id, cnt = 0 ; 
 		int ac = p->M - u->c ; //allele count 
-		for (j = 0; j < p->M; j++){
+		for (j = 0; j < p->M; ++j){
 			if (u->y[j]){
 				cnt += 1 ;
 				int id = u->a[j]/2 ; // Index of individual, not haplotype 
@@ -84,7 +84,10 @@ void alleleSharing(PBWT *p)
 			if (cnt == ac) break;
 		}
 		fprintf(stdout, "\n") ;
-	}	
+
+		pbwtCursorForwardsRead(u) ;
+	}
+	
 	// Cleaning up
 	pbwtCursorDestroy(u);
 }
