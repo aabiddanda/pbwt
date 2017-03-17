@@ -183,7 +183,7 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 	int snp_i = 0;
 
 	Site *sk = arrp(sites, snp_i, Site);
-	for (k = 0 ; k <= p->N; ++k){
+	for (k = 0 ; k < p->N; ++k){
 		Site *cur_site = arrp(p->sites, k, Site);
 		if ((cur_site->x == sk->x) && (cur_site->varD == sk->varD)){			
 			//1. Marking down the current SNP
@@ -197,8 +197,6 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 						int y = f->a[c];
 						int z1 = ((x + y + 1)*(x+y))/ 2 + y; //pairing function for ints
 						int z = ((x+y + k + 1)*(x+y+k))/ 2 + k; // Cantor Pairing Function
-						// fprintf(stderr, "SNP(i):%d\tPos: %d\tHap: %d\tCantor:%d\n", snp_i, k, f->a[a], z);
-						fprintf(stderr, "SNP(i) : %d\t Pos : %d\tHap1: %d\tHap2 : %d\tCantor:%d\n", snp_i, k, f->a[a], f->a[c], z1);
 						hashAdd(hapIDs, HASH_INT(x));
 						hashAdd(hap_pairs, HASH_INT(z1));
 						hashAdd(hapIDs_position, HASH_INT(z));
@@ -248,8 +246,7 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 	  					break;
 	  				}
 	  			}
-	  			if ((cur_pos > 0) && (f->d[i] <= cur_pos)){
-	  				//TODO : should print out snp position + indiv iDs
+	  			if ((cur_pos > 0)){
 	  				Site *s = arrp(p->sites, cur_pos, Site);
 	  				Site *d1 = arrp(p->sites, f->d[i], Site);
 	  				Site *k1 = arrp(p->sites, k, Site);
@@ -273,7 +270,7 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
 	  						cur_pos = a; zi = x1; break;
 	  				}
 	  			}
-	    		if ((cur_pos > 0) && (f->d[i+1] <= cur_pos)){
+	    		if ((cur_pos > 0)){
 	  				Site *s = arrp(p->sites, cur_pos, Site);
 	  				Site *d1 = arrp(p->sites, f->d[i+1], Site);
 	  				Site *k1 = arrp(p->sites, k, Site);
