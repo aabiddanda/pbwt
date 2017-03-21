@@ -214,7 +214,6 @@ void matchSequencesSweepSparse (PBWT *p, PBWT *q, int nSparse,
 				void (*report)(int, int, int, int, BOOL)) ;
 
 void alleleSharing(PBWT *p);
-void printDot(PBWT *p, int k, int d);
 void siteHaplotypesGeneral(PBWT *p, Array sites);
 
 /* pbwtImpute.c */
@@ -229,7 +228,7 @@ PBWT *pbwtCorruptSites (PBWT *pOld, double pSite, double pChange) ;
 PBWT *pbwtCorruptSamples (PBWT *pOld, double pSample, double pChange) ;
 PBWT *pbwtCopySamples (PBWT *pOld, int Mnew, double meanLength) ;
 void pbwtDosageStore (PBWT *p, double *dosage, int k) ;
-double *pbwtDosageRetrieve (PBWT *p, PbwtCursor *u, double *dosage, int k) ; 
+double *pbwtDosageRetrieve (PBWT *p, PbwtCursor *u, double *dosage, int k) ;
 /* if arg dosage == 0 then create and return, else fill and return; uses u->y */
 
 /* pbwtLikelihood.c */

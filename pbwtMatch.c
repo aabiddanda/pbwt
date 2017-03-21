@@ -58,25 +58,24 @@ static void reportMatch (int ai, int bi, int start, int end)
 
 void alleleSharing(PBWT *p)
 {
-	int i, j; 
+	int i, j;
 	PbwtCursor *u = pbwtCursorCreate(p, TRUE, TRUE);
-	
-	for (i = 0; i < p->N; ++i){ 
-		//pbwtCursorForwardsRead(u) ;	
+
+	for (i = 0; i < p->N; ++i){
 		if (p->sites){
 			Site *s = arrp(p->sites, i, Site) ;
-			fprintf(stdout, "%s\t%d\t%s\t", p->chrom, s->x, 
+			fprintf(stdout, "%s\t%d\t%s\t", p->chrom, s->x,
 				dictName(variationDict, s->varD)) ;
 		}
 
-		int prev_id, cnt = 0 ; 
-		int ac = p->M - u->c ; //allele count 
+		int prev_id, cnt = 0 ;
+		int ac = p->M - u->c ; //allele count
 		for (j = 0; j < p->M; ++j){
 			if (u->y[j]){
 				cnt += 1 ;
-				int id = u->a[j]/2 ; // Index of individual, not haplotype 
+				int id = u->a[j]/2 ; // Index of individual, not haplotype
 				if (id != prev_id && p->samples){
-					Sample *curSamp = arrp(p->samples, id, Sample) ; 
+					Sample *curSamp = arrp(p->samples, id, Sample) ;
           fprintf(stdout, "%s\t", sampleName(curSamp)) ;
 					prev_id = id ;
 				}
@@ -87,204 +86,84 @@ void alleleSharing(PBWT *p)
 
 		pbwtCursorForwardsRead(u) ;
 	}
-	
+
 	// Cleaning up
 	pbwtCursorDestroy(u);
 }
-
-
-/*
- *	A function to print the transitions of the pBWT in the DOT language (for later visualization) 
- *	and starting at site i and proceeding through d steps
- */
-void printDot(PBWT *p, int start, int d){
-	
-	//1. Keep track of individuals with minor allele at site k
-	int i, j, k;
-	PbwtCursor *u = pbwtCursorCreate(p, TRUE, TRUE);
-	for (i = 0 ; i < start; ++i) pbwtCursorForwardsRead(u) ; //Moving cursor to the kth variant
-	
-	fprintf(stdout, "digraph forward {\n");	
-
-	int ac = p->M - u->c; //Allele count for start variant	
-	Array hapIDs = arrayCreate(p->M, int) ; //original haplotype indexes 
-	Array indexs = arrayCreate(p->M, int) ; //order at current state 
-	Array alleles = arrayCreate(p->M, int) ; // allele at current state
-	int cnt = 0;
-	// Reading through the haplotypes to get initial haplotype indices
-	for (k = 0; k < p->M; ++k){
-		if (u->y[k]){
-			// fprintf(stderr, "X : %d, k : %d, i : %d\n", u->a[k], k, i);
-			// fprintf(stderr, "K : %d\n", k);
-			array(hapIDs, arrayMax(hapIDs), int) = u->a[k];
-			array(indexs, arrayMax(indexs), int) = k;
-			array(alleles, arrayMax(alleles), int) = u->y[k];
-			++cnt;
-			if (cnt == ac) break;
-		}
-	}	
-
-	//2. Printing graphs in the DOT language
-	pbwtCursorForwardsRead(u);
-	//2a. Reading forward in the order and tracking haplotype indices
-	for (j = start; j <= start+d; ++j){
-		cnt = 0; //set counter to 0 for new position
-		for (k = 0; k < p->M; k++){
-			int cur_hap = u->a[k];
-			int tmp;
-			BOOL found = FALSE;
-			for (tmp = 0 ; tmp < hapIDs->max; ++tmp){
-				int *index = arrp(hapIDs, tmp, int);
-				if (*index == cur_hap){ // We have found an individual that was originally tagged!
-					fprintf(stderr, "X : %d, k : %d, j : %d\n", u->a[k], k, j);
-				 	found = TRUE;
-					break;
-				}
-			}
-			if (found) {
-				// Printing out a line of DOT file - making sure that all nodes are unique
-				int *prev = arrp(indexs, tmp, int);
-				int *prev_allele = arrp(alleles, tmp, int);
-				fprintf(stdout, "\ta%db%dt%d[label=\"%d, %d\"];", *prev, cur_hap, j, *prev, *prev_allele);
-				fprintf(stdout, " a%db%dt%d[label=\"%d, %d\"];", k, cur_hap, j+1, k, u->y[k]);
-				fprintf(stdout, " a%db%dt%d -> a%db%dt%d [label=\"%d,%d\"];\n", *prev, cur_hap, j, k, cur_hap, j+1, cur_hap,j);
-				array(indexs, tmp, int) = k; // Set the current index of the indiv
-				array(alleles, tmp, int) = u->y[k]; //Set the allele to keep track of for next round
-				++cnt;
-			}
-			if (cnt == ac) break; //Found all individuals we needed
-		}
-		pbwtCursorForwardsRead(u); //Moving forward a single step (variant) 
-	}
-	fprintf(stdout, "}\n");
-	// Cleaning up
-	pbwtCursorDestroy(u);
-}
-
 
 /**
-* Haplotype sharing of rare alleles	
+* Haplotype sharing of rare alleles
+*   currently only for an allele at a time
 */
 void siteHaplotypesGeneral(PBWT *p, Array sites){
-	/* modified algorithm 4 in paper */
-	// Error checking 
-	if (!p->sites || !p->samples){
-		die ("option -siteHaplotypes called without sites file or samples file specified") ;
-	}
+  /* modified algorithm 4 in paper */
+  // Error Checking
+  if (!p->sites || !p->samples){
+    die ("option -siteHaplotypes called without sites file or samples file specified") ;
+  }
 
-	// Setting up cursor to traverse things
-	PbwtCursor *f = pbwtCursorCreate(p, TRUE, TRUE);
-	HASH hapIDs = hashCreate(p->M); // original haplotype ids
-	HASH hapIDs_position = hashCreate(p->M); //Crude way to map back to individuals and positions
-	HASH hap_pairs = hashCreate(p->M * p->M);
-	Array site_pos = arrayCreate(p->N, int) ; //site indices
-	//Iterating through a set of sites now
-	int i, j, k, m, n, a, c, b;
-	int snp_i = 0;
+  // Setting up auxiliary variables
+  int i, j, k, m, n, ac, cnt;
+  int pos;
+  PbwtCursor *u = pbwtCursorCreate (p, TRUE, TRUE) ;
+  BOOL found = FALSE;
+  Site *sk = arrp(sites, 0, Site);
+  HASH hapIDs = hashCreate(p->M); // haplotype ids of carriers
 
-	Site *sk = arrp(sites, snp_i, Site);
-	for (k = 0 ; k < p->N; ++k){
-		Site *cur_site = arrp(p->sites, k, Site);
-		if ((cur_site->x == sk->x) && (cur_site->varD == sk->varD)){			
-			//1. Marking down the current SNP
-			BOOL added = FALSE;
-			int ac = p->M - f->c;
-			int paircnt = 0;
-			for (a = p->M; a >= 0; --a){
-				for (c = a-1; c >= 0; --c){
-					if ((f->y[a] && f->y[c]) && f->a[a] != 0){
-						int x = f->a[a];
-						int y = f->a[c];
-						int z1 = ((x + y + 1)*(x+y))/ 2 + y; //pairing function for ints
-						int z = ((x+y + k + 1)*(x+y+k))/ 2 + k; // Cantor Pairing Function
-						hashAdd(hapIDs, HASH_INT(x));
-						hashAdd(hap_pairs, HASH_INT(z1));
-						hashAdd(hapIDs_position, HASH_INT(z));
-						paircnt++;
-						if (paircnt == ac*(ac-1)/2) break;
-						if (!added){
-							array(site_pos, arrayMax(site_pos), int) = k;
-							added = TRUE;
-						}
-					}
-				}
-			}
 
-   		//2. Incrementing to the next snp in the sites file
-			++snp_i;
-			sk = arrp(sites, snp_i, Site); //move onto the next one
-		}
+  // Iterating through the sites...
+  for (k = 0 ; k <= p->N ; ++k){
+    Site *cur_site = arrp(p->sites, k, Site);
+    if ((cur_site->x == sk->x) && (cur_site->varD == sk->varD)){
+      found = TRUE;
+      ac = p->M - u->c ; //allele count
+      pos = k;
+      fprintf(stderr, "AC : %d\n", ac);
+      fprintf(stderr, "POS : %d\n", pos);
+      for (i = 0; i < u->M; ++i){
+        if (u->y[i]){
+          // Add haplotype ID if allele carrier
+          hashAdd(hapIDs, HASH_INT(u->a[i]));
+          fprintf(stderr, "Carrier : %d\n", u->a[i]);
+        }
+      }
+    }
 
-		// 3. Check for maximal matches
-		for (i = 0 ; i < f->M ; ++i){
-			m = i-1 ; n = i+1 ;
-			if (!hashFind(hapIDs, HASH_INT(f->a[i]))) goto nexti;
-		  if (f->d[i] <= f->d[i+1]){
-		    while (f->d[m+1] <= f->d[i]){
-		      if (f->y[m--] == f->y[i] && k < p->N) goto nexti ;
-		    }
-		  }
-		  if (f->d[i] >= f->d[i+1]){
-		    while (f->d[n] <= f->d[i+1]){
-		      if (f->y[n++] == f->y[i] && k < p->N) goto nexti ;
-		    }
-		  }
-		  //Iterating through top half of pbwt
-	  	for (j = m+1 ; j < i ; ++j){
-	  		int t = f->a[i]; int u = f->a[j];
-	  		int w = ((t + u + 1)*(t+u))/ 2 + u;
-	  		if (hashFind(hap_pairs, HASH_INT(w))){
-	  			// Now we know that two of the numbers are a pair.
-	  			int cur_pos = -1;
-	  			int zi = -1;
-	  			for(b = site_pos->max; b >= 0; b--){
-	  				int a = *arrp(site_pos, b, int); //past variant position
-	  				int w1 = t + u + a;
-	  				int x1 = (w1*(w1+1))/2 + a; //inverting Cantor pairing
-	  				if (hashFind(hapIDs_position, HASH_INT(x1))){
-	  					cur_pos = a; zi = x1;
-	  					break;
-	  				}
-	  			}
-	  			if ((cur_pos > 0)){
-	  				Site *s = arrp(p->sites, cur_pos, Site);
-	  				Site *d1 = arrp(p->sites, f->d[i], Site);
-	  				Site *k1 = arrp(p->sites, k, Site);
-	  				fprintf(stdout, "%d\t%d\t%d\t%d\t%d\n", s->x, f->a[i], f->a[j], d1->x, k1->x);
-	  				hashRemove(hapIDs_position, HASH_INT(zi));
-	  			}
-	  		}
-	    }
-	    // Iterating through the bottom half of the pbwt
-	    for (j = i+1 ; j < n ; ++j){
-	    	int t = f->a[i]; int u = f->a[j];
-	  		int w = ((t + u + 1)*(t+u))/ 2 + u;
-	    	if (hashFind(hap_pairs, HASH_INT(w))){
-	  			int cur_pos = -1;
-	  			int zi = -1;
-	  			for(b = site_pos->max; b >= 0; b--){
-	  				int a = *arrp(site_pos, b, int); //past variant position
-	  				int w1 = t + u + a;
-	  				int x1 = (w1*(w1+1))/2 + a; //inverting Cantor pairing
-	  				if (hashFind(hapIDs_position, HASH_INT(x1))){
-	  						cur_pos = a; zi = x1; break;
-	  				}
-	  			}
-	    		if ((cur_pos > 0)){
-	  				Site *s = arrp(p->sites, cur_pos, Site);
-	  				Site *d1 = arrp(p->sites, f->d[i+1], Site);
-	  				Site *k1 = arrp(p->sites, k, Site);
-	  				fprintf(stdout, "%d\t%d\t%d\t%d\t%d\n", s->x, f->a[i], f->a[j], d1->x, k1->x);
-	  				hashRemove(hap_pairs, HASH_INT(zi));
-	  			}
-	  		}
-	  	}
-
-			nexti: ;
-		}
-
-		pbwtCursorForwardsReadAD(f,k);
-	}
+    // Iterating through individuals...
+    for (i = 0 ; i < u->M ; ++i) {
+      m = i-1 ; n = i+1 ;
+  	  if (u->d[i] <= u->d[i+1])
+  	    while (u->d[m+1] <= u->d[i])
+  	      if (u->y[m--] == u->y[i] && k < p->N) goto nexti ;
+  	  if (u->d[i] >= u->d[i+1])
+  	    while (u->d[n] <= u->d[i+1])
+  	      if (u->y[n++] == u->y[i] && k < p->N) goto nexti ;
+      if (!found) goto nexti ;
+  	  else
+  	    {
+          for (j = m+1 ; j < i ; ++j){
+            if (u->d[i] < pos){
+              if (hashFind(hapIDs, HASH_INT(u->a[j])) && hashFind(hapIDs, HASH_INT(u->a[i]))) {
+                reportMatch(u->a[i], u->a[j], u->d[i], k);
+                cnt++;
+              }
+            }
+          }
+  	      for (j = i+1 ; j < n ; ++j){
+            if (u->d[i+1] < pos){
+              if (hashFind(hapIDs, HASH_INT(u->a[j])) && hashFind(hapIDs, HASH_INT(u->a[i]))) {
+                reportMatch(u->a[i], u->a[j], u->d[i+1], k);
+                cnt++;
+              }
+            }
+          }
+  	    }
+  	nexti: ;
+  	}
+    if (cnt >= ac - 1 && found) break;
+    pbwtCursorForwardsReadAD (u, k) ;
+  }
+  pbwtCursorDestroy (u) ;
 }
 
 
@@ -300,7 +179,7 @@ static void matchLongWithin1 (PBWT *p, int T,
     for (i = 0 ; i < u->M ; ++i)
       { if (u->d[i] > T)
 			  { for (ia = 0 ; ia < na ; ++ia)
-			      for (ib = 0 ; ib < nb ; ++ib) 
+			      for (ib = 0 ; ib < nb ; ++ib)
 							(*report) (u->a[ia], u->a[ib], 0, k) ; /* 0 is wrong! - can't get start */
 			    na = 0 ; nb = 0 ;	               /* NB because of this matches won't check */
 			  }
@@ -309,12 +188,12 @@ static void matchLongWithin1 (PBWT *p, int T,
 	else
 	  b[nb++] = u->a[i] ;
       }
-  
+
   free(a) ; free(b) ;  pbwtCursorDestroy (u) ;
 }
 
 
-static void matchLongWithin2 (PBWT *p, int T, 
+static void matchLongWithin2 (PBWT *p, int T,
 			      void (*report)(int ai, int bi, int start, int end))
 /* alternative giving start - it turns out in tests that this is also faster, so use it */
 {
@@ -411,7 +290,7 @@ void pbwtLongMatches (PBWT *p, int L) /* reporting threshold L - if 0 then maxim
     }
 
   pbwtCursorDestroy (u) ;
-  if (isCheck) 
+  if (isCheck)
     { int j ; for (j = 0 ; j < p->M ; ++j) free (checkHapsA[j]) ; free (checkHapsA) ; }
 }
 
@@ -455,7 +334,7 @@ void matchSequencesNaive (PBWT *p, FILE *fp) /* fp is a pbwt file of sequences t
 	      { if (kLastMismatch > bestEnd[k+1])
 		  for (kk = k+1 ; bestEnd[kk] <= kLastMismatch ; ++kk)
 		    { bestEnd[kk] = kLastMismatch ; bestSeq[kk] = i ; }
-		kLastMismatch = k ; 
+		kLastMismatch = k ;
 	      }
 	  if (kLastMismatch > bestEnd[0])
 	    for (kk = 0 ; bestEnd[kk] <= kLastMismatch ; ++kk)
@@ -471,7 +350,7 @@ void matchSequencesNaive (PBWT *p, FILE *fp) /* fp is a pbwt file of sequences t
 	  }
     }
 
-  fprintf (logFile, "Average number of best matches %.1f, Average length %.1f\n", 
+  fprintf (logFile, "Average number of best matches %.1f, Average length %.1f\n",
 	   nTot/(double)q->M, totLen/(double)nTot) ;
 
   pbwtDestroy (q) ;
@@ -480,7 +359,7 @@ void matchSequencesNaive (PBWT *p, FILE *fp) /* fp is a pbwt file of sequences t
   free (bestSeq) ; free (bestEnd) ;
 }
 
-/* Next implementation is algorithm 5 from the paper, precalculating indices in memory. 
+/* Next implementation is algorithm 5 from the paper, precalculating indices in memory.
    It should be O(NQ) time after O(NM) time index calculation. Downside is O(NM) memory,
    13NM bytes for now I think.  This can almost certainly be reduced with some work.
 */
@@ -530,7 +409,7 @@ void matchSequencesIndexed (PBWT *p, FILE *fp)
       for (k = 0 ; k < N ; ++k)
 	{               /* use classic FM updates to extend [f,g) interval to next position */
 	  f1 = x[k] ? cc[k] + (f - u[k][f]) : u[k][f] ;
-	  g1 = x[k] ? cc[k] + (g - u[k][g]) : u[k][g] ; 
+	  g1 = x[k] ? cc[k] + (g - u[k][g]) : u[k][g] ;
 	  		/* if the interval is non-zero we can just proceed */
 	  if (g1 > f1)
 	    { f = f1 ; g = g1 ; } /* no change to e */
@@ -559,7 +438,7 @@ void matchSequencesIndexed (PBWT *p, FILE *fp)
       ++nTot ; totLen += k-e ;
     }
 
-  fprintf (logFile, "Average number of best matches %.1f, Average length %.1f\n", 
+  fprintf (logFile, "Average number of best matches %.1f, Average length %.1f\n",
 	   nTot/(double)q->M, totLen/(double)nTot) ;
 
   /* cleanup */
@@ -635,11 +514,11 @@ void matchSequencesSweep (PBWT *p, PBWT *q, void (*report)(int ai, int bi, int s
 		      if (up->y[iPlus] == x) { f[jj] = iPlus ; d[jj] = dPlus ; goto DONE ; }
 		      else ++iPlus ;
 		    dPlus = (iPlus == p->M) ? k : up->d[iPlus] ;
-		    if (!iMinus && iPlus == p->M) 
-		      { fprintf (logFile, "no match to query %d value %d at site %d\n", 
+		    if (!iMinus && iPlus == p->M)
+		      { fprintf (logFile, "no match to query %d value %d at site %d\n",
 				 jj, x, k) ;
 			d[jj] = k+1 ;
-			goto DONE ; 
+			goto DONE ;
 		      }
 		  }
 	    }
@@ -652,9 +531,9 @@ void matchSequencesSweep (PBWT *p, PBWT *q, void (*report)(int ai, int bi, int s
 	{ int jj = uq->a[j] ;
 	  f[jj] = pbwtCursorMap (up, uq->y[j], f[jj]) ;
 	  /* trap if x == 1 and all up->y[] == 0, so d[jj] == k+1 (see above) */
-	  if (f[jj] == p->M) f[jj] = 0 ; 
-	}	  
-	
+	  if (f[jj] == p->M) f[jj] = 0 ;
+	}
+
       pbwtCursorForwardsReadAD (up, k) ;
       pbwtCursorForwardsRead (uq) ;
     }
@@ -668,7 +547,7 @@ void matchSequencesSweep (PBWT *p, PBWT *q, void (*report)(int ai, int bi, int s
       nTot += (i - f[jj]) ; totLen += (p->N - d[jj])*(i - f[jj]) ;
     }
 
-  fprintf (logFile, "Average number of best matches including alternates %.1f, Average length %.1f, Av number per position %.1f\n", 
+  fprintf (logFile, "Average number of best matches including alternates %.1f, Average length %.1f, Av number per position %.1f\n",
 	   nTot/(double)q->M, totLen/(double)nTot, totLen/(double)(q->M*q->N)) ;
 
   pbwtCursorDestroy (up) ; pbwtCursorDestroy (uq) ;
@@ -695,7 +574,7 @@ static void reportAndUpdate (int j, int k, uchar x, PbwtCursor *up, int *f, int 
   nTot += (iPlus - f[j]) ; totLen += (k - dj)*(iPlus - f[j]) ;
 
   if (isCheck && isSparse)	/* local sparse version of checkMatchMaximal() */
-    for (i = f[j] ; i < iPlus ; ++i) 
+    for (i = f[j] ; i < iPlus ; ++i)
       { uchar *x = checkHapsA[j], *y = checkHapsB[up->a[i]] ;
 	if (dj >= nSparseStore && x[dj-nSparseStore] == y[dj-nSparseStore])
 	  die ("match not maximal - can extend backwards") ;
@@ -723,10 +602,10 @@ static void reportAndUpdate (int j, int k, uchar x, PbwtCursor *up, int *f, int 
 	  if (up->y[iPlus] == x) { f[j] = iPlus ; d[j] = dPlus ; return ; }
 	  else ++iPlus ;
 	dPlus = (iPlus < up->M) ? up->d[iPlus] : (isSparse ? k/nSparseStore : k) ;
-	if (!iMinus && iPlus == up->M) 
+	if (!iMinus && iPlus == up->M)
 	  { fprintf (logFile, "no match to query %d value %d at site %d\n", j, x, k) ;
 	    d[j] = 1 + (isSparse ? k/nSparseStore : k) ;
-	    return ; 
+	    return ;
 	  }
       }
 }
@@ -746,10 +625,10 @@ void matchSequencesSweepSparse (PBWT *p, PBWT *q, int nSparse,
   uchar *xp ;
   int kk ;
   if (nSparse > 1)
-    { upp = myalloc (nSparse, PbwtCursor*) ; 
+    { upp = myalloc (nSparse, PbwtCursor*) ;
       ff = myalloc (nSparse, int*) ;
       dd = myalloc (nSparse, int*) ;
-      for (kk = 0 ; kk < nSparse ; ++kk) 
+      for (kk = 0 ; kk < nSparse ; ++kk)
 	{ upp[kk] = pbwtNakedCursorCreate (p->M, 0) ;
 	  ff[kk] = mycalloc (q->M, int) ;
 	  dd[kk] = mycalloc (q->M, int) ;
@@ -783,7 +662,7 @@ void matchSequencesSweepSparse (PBWT *p, PBWT *q, int nSparse,
 	{ int jj = uq->a[j] ;
 	  f[jj] = pbwtCursorMap (up, uq->y[j], f[jj]) ;
 	  /* trap if x == 1 and all up->y[] == 0, so d[jj] == k+1 (see above) */
-	  if (f[jj] == p->M) f[jj] = 0 ; 
+	  if (f[jj] == p->M) f[jj] = 0 ;
 	}
 
       if (nSparse > 1)		/* and the relevant sparse entry */
@@ -811,7 +690,7 @@ void matchSequencesSweepSparse (PBWT *p, PBWT *q, int nSparse,
       nTot += (i - f[jj]) ; totLen += (p->N - d[jj])*(i - f[jj]) ;
     }
 
-  if (nSparse > 1) 
+  if (nSparse > 1)
     for (kk = 0 ; kk < nSparse ; ++kk)
       for (j = 0 ; j < q->M ; ++j)
 	{ int jj = uq->a[j] ;
@@ -822,7 +701,7 @@ void matchSequencesSweepSparse (PBWT *p, PBWT *q, int nSparse,
 	  nTot += (i - ff[kk][jj]) ; totLen += (p->N - dd[kk][jj])*(i - ff[kk][jj]) ;
 	}
 
-  fprintf (logFile, "Average number of best matches including alternates %.1f, Average length %.1f, Av number per position %.1f\n", 
+  fprintf (logFile, "Average number of best matches including alternates %.1f, Average length %.1f, Av number per position %.1f\n",
 	   nTot/(double)q->M, totLen/(double)nTot, totLen/(double)(q->M*q->N)) ;
 
   pbwtCursorDestroy (up) ; pbwtCursorDestroy (uq) ;

@@ -151,8 +151,8 @@ static void recordCommandLine (int argc, char *argv[])
    for (i = 0 ; i < argc ; ++i) len += (1 + strlen(argv[i])) ;
    commandLine = myalloc (len, char) ;
    strcpy (commandLine, argv[0]) ;
-   for (i = 1 ; i < argc ; ++i) 
-     { strcat (commandLine, " ") ; 
+   for (i = 1 ; i < argc ; ++i)
+     { strcat (commandLine, " ") ;
        strcat (commandLine, argv[i]) ;
      }
  }
@@ -192,7 +192,7 @@ int main (int argc, char *argv[])
 
   if (!argc)			/* print help */
     { fprintf (stderr, "Program: pbwt\n") ;
-      fprintf (stderr, "Version: %d.%d%s%s (using htslib %s)\n", pbwtMajorVersion, pbwtMinorVersion, 
+      fprintf (stderr, "Version: %d.%d%s%s (using htslib %s)\n", pbwtMajorVersion, pbwtMinorVersion,
                        strcmp(pbwtCommitHash(),"")==0 ? "" : "-", pbwtCommitHash(), pbwtHtslibVersionString()) ;
       fprintf (stderr, "Contact: Richard Durbin [rd@sanger.ac.uk]\n") ;
       fprintf (stderr, "Usage: pbwt [ -<command> [options]* ]+\n") ;
@@ -267,7 +267,6 @@ int main (int argc, char *argv[])
       fprintf (stderr, "  -readGeneticMap <file>    read Oxford format genetic map file\n") ;
       fprintf (stderr, "  -4hapsStats               mu:rho 4 hap test stats\n") ;
     	fprintf (stderr, "  -alleleShare <file>       compute allele-sharing for variants in sites file\n") ;
-	    fprintf (stderr, "  -printDot <start> <duration>	print haplotype sharing to the right\n") ;
 			fprintf (stderr, "  -siteHaplotypes <site file> 	print haplotype lengths that overlap sites\n") ;
 		}
 
@@ -280,17 +279,17 @@ int main (int argc, char *argv[])
     else if (!strcmp (argv[0], "-stats"))
       { isStats = TRUE ; argc -= 1 ; argv += 1 ; }
     else if (!strcmp (argv[0], "-merge") && argc > 1)
-    { 
+    {
         int i, nfiles = 0;
         const char **files = calloc(argc, sizeof(char*));
-        for (i=1; i<argc; i++) 
+        for (i=1; i<argc; i++)
         {
             if ( argv[i][0] == '-' ) break; // hopefully no one names their files to start with "-"
             files[nfiles++] = argv[i];
         }
-        if ( nfiles>1 ) p = pbwtMerge(files, nfiles); 
+        if ( nfiles>1 ) p = pbwtMerge(files, nfiles);
         free(files);
-        argc -= nfiles+1 ; argv += nfiles+1 ; 
+        argc -= nfiles+1 ; argv += nfiles+1 ;
     }
     else if (!strcmp (argv[0], "-log") && argc > 1)
       { LOGCLOSE ; LOGOPEN("log") ; argc -= 2 ; argv += 2 ; }
@@ -372,13 +371,13 @@ int main (int argc, char *argv[])
       { FOPEN("selectSites","r") ; char *chr = 0 ; Array sites = pbwtReadSitesFile (fp, &chr) ;
 	if (strcmp (chr, p->chrom)) die ("chromosome mismatch in selectSites") ;
 	p = pbwtSelectSites (p, sites, FALSE) ; free (chr) ; arrayDestroy (sites) ;
-	argc -= 2 ; argv += 2 ; 
+	argc -= 2 ; argv += 2 ;
       }
     else if (!strcmp (argv[0], "-removeSites") && argc > 1)
       { FOPEN("removeSites","r") ; char *chr = 0 ; Array sites = pbwtReadSitesFile (fp, &chr) ;
 	if (p->chrom && strcmp (chr, p->chrom)) die ("chromosome mismatch in removeSites") ;
 	p = pbwtRemoveSites (p, sites, FALSE) ; free (chr) ; arrayDestroy (sites) ;
-	argc -= 2 ; argv += 2 ; 
+	argc -= 2 ; argv += 2 ;
       }
     else if (!strcmp (argv[0], "-subrange") && argc > 2)
       { p = pbwtSubRange (p, atoi(argv[1]), atoi(argv[2])) ; argc -= 3 ; argv += 3 ; }
@@ -395,15 +394,15 @@ int main (int argc, char *argv[])
     else if (!strcmp (argv[0], "-siteInfo") && argc > 3)
       { FOPEN("siteInfo","w") ; exportSiteInfo (p, fp, atoi(argv[2]), atoi(argv[3])) ; FCLOSE ; argc -= 4 ; argv += 4 ; }
     else if (!strcmp (argv[0], "-sfs") && argc > 1)
-      { 
-        // Create the file here. 
+      {
+        // Create the file here.
         FILE *fp ;
-        if (p->sites) { 
-          fp = fopenTag(argv[1], "sites.freq", "w") ; 
-          if (!fp) die ("Can't open file pointer!") ; 
+        if (p->sites) {
+          fp = fopenTag(argv[1], "sites.freq", "w") ;
+          if (!fp) die ("Can't open file pointer!") ;
         }
         // Now call sfs method
-        siteFrequencySpectrum (p, fp); argc -= 2 ; argv += 2 ; 
+        siteFrequencySpectrum (p, fp); argc -= 2 ; argv += 2 ;
       }
     else if (!strcmp (argv[0], "-refFreq") && argc > 1)
       { FOPEN("refFreq","r") ; pbwtReadRefFreq (p, fp) ; FCLOSE ; argc -= 2 ; argv += 2 ; }
@@ -425,7 +424,7 @@ int main (int argc, char *argv[])
       { p = referencePhase (p, argv[1]) ; argc -= 2 ; argv += 2 ; }
     else if (!strcmp (argv[0], "-referenceImpute") && argc > 1)
       { int nSparse = 1 ; double fSparse = 1.0 ;
-	char *fileNameRoot = argv[1] ;  argc -= 2 ; argv += 2 ; 
+	char *fileNameRoot = argv[1] ;  argc -= 2 ; argv += 2 ;
 	if (argc && argv[0][0] != '-')
 	  { if (!(nSparse = atoi(argv[0]))) die ("bad refImpute nSparse %s", argv[0]) ;
 	    else { --argc ; ++argv ; }
@@ -443,59 +442,54 @@ int main (int argc, char *argv[])
     else if (!strcmp (argv[0], "-fitAlphaBeta") && argc > 1)
       { pbwtFitAlphaBeta (p, atoi(argv[1])) ; argc -= 2 ; argv += 2 ; }
     else if (!strcmp (argv[0], "-llCopyModel") && argc > 2)
-      { pbwtLogLikelihoodCopyModel (p, atof(argv[1]), atof(argv[2])) ; 
-	argc -= 3 ; argv += 3 ; 
+      { pbwtLogLikelihoodCopyModel (p, atof(argv[1]), atof(argv[2])) ;
+	argc -= 3 ; argv += 3 ;
       }
     else if (!strcmp (argv[0], "-readGeneticMap") && argc > 1)
       {  FOPEN("readGeneticMap","r") ; readGeneticMap (fp) ; FCLOSE ; argc -= 2 ; argv += 2 ; }
     else if (!strcmp (argv[0], "-4hapsStats"))
       { pbwt4hapsStats (p) ; argc -= 1 ; argv += 1 ; }
     else if (!strcmp (argv[0], "-paint") && argc > 1)
-      { 
+      {
 	int npr=100;
        	if(argc>2) if(argv[2][0] !='-') npr=atoi(argv[2]);
-	paintAncestryMatrix (p, argv[1],npr) ; argc -= 2 ; argv += 2 ; 
+	paintAncestryMatrix (p, argv[1],npr) ; argc -= 2 ; argv += 2 ;
        	if(argc>0) if(argv[0][0] !='-') {--argc;++argv; }
       }
     else if (!strcmp (argv[0], "-paintSparse") && argc > 1)
-      { 
+      {
 	int npr=100;
        	if(argc>2) if(argv[2][0] !='-') npr=atoi(argv[2]);
-	paintAncestryMatrixSparse (p, argv[1],npr,0) ; argc -= 2 ; argv += 2 ; 
+	paintAncestryMatrixSparse (p, argv[1],npr,0) ; argc -= 2 ; argv += 2 ;
        	if(argc>0) if(argv[0][0] !='-') {--argc;++argv; }
       }
     else if (!strcmp (argv[0], "-play"))
       { p = playGround (p) ; argc -= 1 ; argv += 1 ; }
-		else if (!strcmp (argv[0], "-printDot") && argc > 2)
-			{			
-				printDot(p, atoi(argv[1]), atoi(argv[2]));
-				argc -= 3 ; argv += 3;
-			}
 		else if (!strcmp (argv[0], "-alleleShare") && argc > 1)
 			{
-				FOPEN("selectSites","r"); 
-				char *chr = 0 ; 
+				FOPEN("selectSites","r");
+				char *chr = 0 ;
 				Array sites = pbwtReadSitesFile (fp, &chr) ;
 
-				if (strcmp (chr, p->chrom)){ 
+				if (strcmp (chr, p->chrom)){
 					die ("chromosome mismatch in selectSites") ;
 				}
 				p = pbwtSelectSites (p, sites, FALSE) ; free (chr) ; arrayDestroy (sites) ;
-				
+
 				alleleSharing(p); argc -= 2; argv += 2;
 			}
     else if (!strcmp (argv[0], "-siteHaplotypes") && argc > 1)
-      { 
-        FOPEN("selectSites","r"); 
-        char *chr = 0 ; 
+      {
+        FOPEN("selectSites","r");
+        char *chr = 0 ;
         Array sites = pbwtReadSitesFile (fp, &chr) ;
 
-        if (strcmp (chr, p->chrom)){ 
+        if (strcmp (chr, p->chrom)){
           die ("chromosome mismatch in selectSites") ;
         }
 
         // Running the general function
-        siteHaplotypesGeneral(p, sites); 
+        siteHaplotypesGeneral(p, sites);
         argc -= 2; argv += 2;
       }
 		else

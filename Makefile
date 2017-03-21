@@ -1,7 +1,7 @@
 
 CFLAGS= -g -O3
 CPPFLAGS=-I$(HTSDIR)
-HTSDIR=/usr/local/lib
+HTSDIR=../htslib
 HTSLIB=$(HTSDIR)/libhts.a
 LDLIBS=-lpthread -lz -lm $(HTSLIB)
 
@@ -44,4 +44,3 @@ clean:
 	$(RM) *.o pbwt *~ version.h
 
 .PHONY: all test clean force install
-
