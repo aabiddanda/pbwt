@@ -124,7 +124,8 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
         if (u->y[i]){
           // Add haplotype ID if allele carrier
           hashAdd(hapIDs, HASH_INT(u->a[i]));
-          fprintf(stderr, "Carrier : %d\n", u->a[i]);
+          Sample *cur_ind = arrp(p->samples, (u->a[i])/2, Sample);
+          fprintf(stderr, "Carrier : %s\n", sampleName(cur_ind));
         }
       }
     }
@@ -142,17 +143,29 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
   	  else
   	    {
           for (j = m+1 ; j < i ; ++j){
+            // Checking that we overlap the site
             if (u->d[i] < pos){
               if (hashFind(hapIDs, HASH_INT(u->a[j])) && hashFind(hapIDs, HASH_INT(u->a[i]))) {
-                reportMatch(u->a[i], u->a[j], u->d[i], k);
+                Site *s = arrp(p->sites, pos, Site);
+                Sample *i1 = arrp(p->samples, (u->a[i])/2, Sample);
+                Sample *i2 = arrp(p->samples, (u->a[j])/2, Sample);
+                Site *end = arrp(p->sites, k, Site);
+                Site *start = arrp(p->sites, u->d[i+1], Site);
+                fprintf(stdout, "%s\t%d\t%s\t%d\t%s\t%s\t%d\t%d\n", p->chrom, s->x, dictName (variationDict, s->varD), ac, sampleName(i1), sampleName(i2), start->x, end->x);
                 cnt++;
               }
             }
           }
   	      for (j = i+1 ; j < n ; ++j){
+            // Checking that we overlap the site
             if (u->d[i+1] < pos){
               if (hashFind(hapIDs, HASH_INT(u->a[j])) && hashFind(hapIDs, HASH_INT(u->a[i]))) {
-                reportMatch(u->a[i], u->a[j], u->d[i+1], k);
+                Site *s = arrp(p->sites, pos, Site);
+                Sample *i1 = arrp(p->samples, (u->a[i])/2, Sample);
+                Sample *i2 = arrp(p->samples, (u->a[j])/2, Sample);
+                Site *end = arrp(p->sites, k, Site);
+                Site *start = arrp(p->sites, u->d[i+1], Site);
+                fprintf(stdout, "%s\t%d\t%s\t%d\t%s\t%s\t%d\t%d\n", p->chrom, s->x, dictName (variationDict, s->varD), ac, sampleName(i1), sampleName(i2), start->x, end->x);
                 cnt++;
               }
             }
