@@ -93,7 +93,7 @@ void alleleSharing(PBWT *p)
 
 /**
 * Haplotype sharing of rare alleles
-*   currently only for an allele at a time
+*   TODO : currently only for an allele at a time
 */
 void siteHaplotypesGeneral(PBWT *p, Array sites){
   /* modified algorithm 4 in paper */
@@ -107,9 +107,9 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
   int pos;
   PbwtCursor *u = pbwtCursorCreate (p, TRUE, TRUE) ;
   BOOL found = FALSE;
+  HASH haps_found = hashCreate(p->M);//haplotypes we have found...
   Site *sk = arrp(sites, 0, Site);
   HASH hapIDs = hashCreate(p->M); // haplotype ids of carriers
-
 
   // Iterating through the sites...
   for (k = 0 ; k <= p->N ; ++k){
@@ -122,14 +122,14 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
       fprintf(stderr, "POS : %d\n", pos);
       for (i = 0; i < u->M; ++i){
         if (u->y[i]){
-          // Add haplotype ID if allele carrier
+          // Add haplotype ID of allele carrier
           hashAdd(hapIDs, HASH_INT(u->a[i]));
           Sample *cur_ind = arrp(p->samples, (u->a[i])/2, Sample);
           fprintf(stderr, "Carrier : %s\n", sampleName(cur_ind));
         }
       }
     }
-
+    // int stop = FALSE;
     // Iterating through individuals...
     for (i = 0 ; i < u->M ; ++i) {
       m = i-1 ; n = i+1 ;
@@ -143,29 +143,25 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
   	  else
   	    {
           for (j = m+1 ; j < i ; ++j){
-            // Checking that we overlap the site
-            if (u->d[i] < pos){
-              if (hashFind(hapIDs, HASH_INT(u->a[j])) && hashFind(hapIDs, HASH_INT(u->a[i]))) {
+            if (hashFind(hapIDs, HASH_INT(u->a[j])) && hashFind(hapIDs, HASH_INT(u->a[i]))) {
+              //Checking that we overlap the site...
+              if (u->d[i] < pos){
                 Site *s = arrp(p->sites, pos, Site);
-                Sample *i1 = arrp(p->samples, (u->a[i])/2, Sample);
-                Sample *i2 = arrp(p->samples, (u->a[j])/2, Sample);
                 Site *end = arrp(p->sites, k, Site);
-                Site *start = arrp(p->sites, u->d[i+1], Site);
-                fprintf(stdout, "%s\t%d\t%s\t%d\t%s\t%s\t%d\t%d\n", p->chrom, s->x, dictName (variationDict, s->varD), ac, sampleName(i1), sampleName(i2), start->x, end->x);
+                Site *start = arrp(p->sites, u->d[i], Site);
+                fprintf(stdout, "%s\t%d\t%s\t%d\t%d\t%d\t%d\t%d\n", p->chrom, s->x, dictName (variationDict, s->varD), ac, u->a[i], u->a[j], start->x, end->x);
                 cnt++;
               }
             }
           }
   	      for (j = i+1 ; j < n ; ++j){
-            // Checking that we overlap the site
-            if (u->d[i+1] < pos){
-              if (hashFind(hapIDs, HASH_INT(u->a[j])) && hashFind(hapIDs, HASH_INT(u->a[i]))) {
+            if (hashFind(hapIDs, HASH_INT(u->a[j])) && hashFind(hapIDs, HASH_INT(u->a[i]))) {
+              //Checking that we overlap the site...
+              if (u->d[i+1] < pos){
                 Site *s = arrp(p->sites, pos, Site);
-                Sample *i1 = arrp(p->samples, (u->a[i])/2, Sample);
-                Sample *i2 = arrp(p->samples, (u->a[j])/2, Sample);
                 Site *end = arrp(p->sites, k, Site);
                 Site *start = arrp(p->sites, u->d[i+1], Site);
-                fprintf(stdout, "%s\t%d\t%s\t%d\t%s\t%s\t%d\t%d\n", p->chrom, s->x, dictName (variationDict, s->varD), ac, sampleName(i1), sampleName(i2), start->x, end->x);
+                fprintf(stdout, "%s\t%d\t%s\t%d\t%d\t%d\t%d\t%d\n", p->chrom, s->x, dictName(variationDict, s->varD), ac, u->a[i], u->a[j], start->x, end->x);
                 cnt++;
               }
             }
@@ -173,7 +169,8 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
   	    }
   	nexti: ;
   	}
-    if (cnt >= ac - 1 && found) break;
+    // Count must be 2x since we are working with pairs...
+    if (found && cnt >= 2*(ac - 1)) break;
     pbwtCursorForwardsReadAD (u, k) ;
   }
   pbwtCursorDestroy (u) ;
