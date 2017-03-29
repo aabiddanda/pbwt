@@ -105,14 +105,13 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
   // Setting up auxiliary variables
   int i, j, k, m, n, ac, cnt;
   int pos;
-  PbwtCursor *u = pbwtCursorCreate (p, TRUE, TRUE) ;
   BOOL found = FALSE;
-  HASH haps_found = hashCreate(p->M);//haplotypes we have found...
+  PbwtCursor *u = pbwtCursorCreate (p, TRUE, TRUE) ;
   Site *sk = arrp(sites, 0, Site);
   HASH hapIDs = hashCreate(p->M); // haplotype ids of carriers
 
   // Iterating through the sites...
-  for (k = 0 ; k <= p->N ; ++k){
+  for (k = 0 ; k < p->N ; ++k){
     Site *cur_site = arrp(p->sites, k, Site);
     if ((cur_site->x == sk->x) && (cur_site->varD == sk->varD)){
       found = TRUE;
@@ -175,6 +174,97 @@ void siteHaplotypesGeneral(PBWT *p, Array sites){
   }
   pbwtCursorDestroy (u) ;
 }
+
+/**
+* Haplotype sharing of rare alleles
+*   TODO : speed up to operate at scale...
+*/
+void siteHaplotypesExperimental(PBWT *p, Array sites){
+  /* modified algorithm 4 in paper */
+  // Error Checking
+  if (!p->sites || !p->samples){
+    die ("option -siteHaplotypes called without sites file or samples file specified") ;
+  }
+
+  // Setting up auxiliary variables
+  int i, j, k, m, n, b, ac;
+  int aic = 0;
+  PbwtCursor *u = pbwtCursorCreate(p, TRUE, TRUE);
+  Site *sk = arrp(sites, aic, Site);
+  HASH hapIDs = hashCreate(4096 * p->M); // haplotype ids of carriers
+  HASH hapIDsVars = hashCreate(4096 * p->M); //haplotype IDs + locations of alleles
+
+  for (k = 0 ; k < p->N ; ++k){
+    if (k % 5000 == 0){
+      fprintf(stderr, "Percent Complete: %0.6f\n", ((double)k /(double)p->N)*100.0);
+    }
+    Site *cur_site = arrp(p->sites, k, Site);
+    if ((cur_site->x == sk->x) && (cur_site->varD == sk->varD)){
+      ac = p->M - u->c;
+      for (b = 0; b < p->M; ++b){
+        if (u->y[b]){
+          // Add the pair of position and hapID...
+          hashAdd(hapIDs, HASH_INT(u->a[b]));
+          hashAdd(hapIDsVars, HASH_INT(u->a[b] + k * p->N));
+        }
+      }
+      aic++;
+      sk = arrp(sites, aic, Site);
+    }
+
+    for (i = 0 ; i < u->M ; ++i){
+      m = i-1 ; n = i+1 ;
+	    if (u->d[i] <= u->d[i+1]){
+	       while (u->d[m+1] <= u->d[i]){
+            if (u->y[m--] == u->y[i] && k < p->N) goto nexti ;
+         }
+      }
+	    if (u->d[i] >= u->d[i+1]){
+	       while (u->d[n] <= u->d[i+1]){
+	          if (u->y[n++] == u->y[i] && k < p->N) goto nexti ;
+         }
+      }
+	    else{
+        // BOOL found = TRUE;
+        for (j = m+1 ; j < i ; ++j){
+          if (hashFind(hapIDs, HASH_INT(u->a[i])) && hashFind(hapIDs, HASH_INT(u->a[j]))){
+            for (int x = u->d[i]; x < k; ++x){
+              int i1 = hashFind(hapIDsVars, HASH_INT(u->a[i] + x * p->N));
+              int i2 = hashFind(hapIDsVars, HASH_INT(u->a[j] + x * p->N));
+              if (i1 && i2){
+                Site *focal = arrp(p->sites, x, Site);
+                Site *start = arrp(p->sites, u->d[i], Site);
+                Site *end = arrp(p->sites, k, Site);
+                fprintf(stdout, "%d\t%d\t%d\t%d\t%d\n", focal->x, u->a[i], u->a[j], start->x, end->x);
+              }
+            }
+          }
+        }
+  	    for (j = i+1 ; j < n ; ++j){
+          if (hashFind(hapIDs, HASH_INT(u->a[i])) && hashFind(hapIDs, HASH_INT(u->a[j]))){
+            for (int x= u->d[i+1]; x < k; ++x){
+              int i1 = hashFind(hapIDsVars, HASH_INT(u->a[i] + x * p->N));
+              int i2 = hashFind(hapIDsVars, HASH_INT(u->a[j] + x * p->N));
+              if (i1 && i2){
+                Site *focal = arrp(p->sites, x, Site);
+                Site *start = arrp(p->sites, u->d[i+1], Site);
+                Site *end = arrp(p->sites, k, Site);
+                fprintf(stdout, "%d\t%d\t%d\t%d\t%d\n", focal->x, u->a[i], u->a[j], start->x, end->x);
+              }
+            }
+          }
+        }
+      }
+	     nexti: ;
+	}
+    pbwtCursorForwardsReadAD (u, k) ;
+  }
+  // Destroy the cursor
+  pbwtCursorDestroy(u);
+}
+
+
+
 
 
 static void matchLongWithin1 (PBWT *p, int T,

@@ -267,7 +267,8 @@ int main (int argc, char *argv[])
       fprintf (stderr, "  -readGeneticMap <file>    read Oxford format genetic map file\n") ;
       fprintf (stderr, "  -4hapsStats               mu:rho 4 hap test stats\n") ;
     	fprintf (stderr, "  -alleleShare <file>       compute allele-sharing for variants in sites file\n") ;
-			fprintf (stderr, "  -siteHaplotypes <site file> 	print haplotype lengths that overlap sites\n") ;
+			fprintf (stderr, "  -siteHaplotypes <site file> 	print haplotype lengths that overlap sites (only one)\n") ;
+			fprintf (stderr, "  -siteHapsExp <site file> 	print haplotype length that overlap sites\n") ;
 		}
 
   timeUpdate(logFile) ;
@@ -492,6 +493,20 @@ int main (int argc, char *argv[])
         siteHaplotypesGeneral(p, sites);
         argc -= 2; argv += 2;
       }
+    else if (!strcmp (argv[0], "-siteHapsExp") && argc > 1)
+        {
+          FOPEN("selectSites","r");
+          char *chr = 0 ;
+          Array sites = pbwtReadSitesFile (fp, &chr) ;
+
+          if (strcmp (chr, p->chrom)){
+            die ("chromosome mismatch in selectSites") ;
+          }
+
+          // Running the general function
+          siteHaplotypesExperimental(p, sites);
+          argc -= 2; argv += 2;
+        }
 		else
       die ("unrecognised command %s\nType pbwt without arguments for help", *argv) ;
     timeUpdate(logFile) ;
